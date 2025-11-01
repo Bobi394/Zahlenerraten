@@ -14,10 +14,10 @@
 <body>
   <div class="box">
     <h1>🔥 Hotspot Zahlenspiel 🔥</h1>
-    <p>Errate die Zahl zwischen 1 und 50!</p>
+    <p>Errate die Zahl!</p>
 
     <p id="info">Lade Einstellungen…</p>
-    <input id="guessInput" type="number" min="1" max="50" placeholder="Zahl eingeben">
+    <input id="guessInput" type="number" placeholder="Zahl eingeben">
     <button id="guessBtn">Raten</button>
 
     <p id="result"></p>
@@ -55,7 +55,9 @@
     let attemptsLeft = 0;
     let password = "";
     let lastReload = 0;
-    let randomNumberMode = true; // ob Zufall an ist
+    let randomNumberMode = true;
+    let minNumber = 1;
+    let maxNumber = 50;
 
     // 🔹 Einstellungen laden
     async function loadSettings() {
@@ -65,10 +67,12 @@
         attemptsLeft = data.maxAttempts || 6;
         password = data.password || "";
         randomNumberMode = data.randomNumber ?? true;
+        minNumber = data.minNumber || 1;
+        maxNumber = data.maxNumber || 50;
 
-        // Zahl initial
+        // Initialzahl
         if(randomNumberMode){
-          randomNumber = Math.floor(Math.random() * 50) + 1;
+          randomNumber = Math.floor(Math.random() * (maxNumber - minNumber + 1)) + minNumber;
         } else {
           randomNumber = data.fixedNumber || 1;
         }
@@ -84,14 +88,14 @@
     // 🔹 Tipp-Button
     guessBtn.onclick = () => {
       const guess = Number(guessInput.value);
-      if(!guess || guess < 1 || guess > 50){
-        result.textContent = "⚠️ Gib eine Zahl zwischen 1 und 50 ein!";
+      if(!guess || guess < minNumber || guess > maxNumber){
+        result.textContent = `⚠️ Gib eine Zahl zwischen ${minNumber} und ${maxNumber} ein!`;
         return;
       }
 
-      // Zufallszahl bei jedem Versuch neu generieren, wenn aktiv
+      // Zufallszahl bei jedem Versuch neu generieren, falls aktiviert
       if(randomNumberMode){
-        randomNumber = Math.floor(Math.random() * 50) + 1;
+        randomNumber = Math.floor(Math.random() * (maxNumber - minNumber + 1)) + minNumber;
       }
 
       attemptsLeft--;
@@ -114,8 +118,6 @@
 
     // 🔹 Admin Reload Trigger überwachen
     const reloadRef = ref(db, "reloadTrigger");
-
-    // initialen Wert holen, damit beim ersten Laden kein Reload passiert
     const snapshot = await get(reloadRef);
     if(snapshot.exists()) lastReload = snapshot.val();
 

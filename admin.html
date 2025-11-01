@@ -57,12 +57,10 @@
     const saveBtn = document.getElementById("saveBtn");
     const msg = document.getElementById("msg");
 
-    // Elemente ein/ausblenden je nach Schalter
     randomNumberSwitch.onchange = () => {
       fixedNumber.disabled = randomNumberSwitch.checked;
     };
 
-    // Einstellungen aus DB laden
     async function loadSettings() {
       const snapshot = await get(child(ref(db), "settings"));
       if(snapshot.exists()){
@@ -77,7 +75,6 @@
 
     loadSettings();
 
-    // Speichern
     saveBtn.onclick = async () => {
       await set(ref(db, "settings"), {
         password: hotspotPassword.value,

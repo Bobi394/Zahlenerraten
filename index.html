@@ -131,14 +131,18 @@ guessBtn.onclick = () => {
   info.textContent = `Noch ${attemptsLeft} Versuche.`;
 };
 
-// 🔹 🔄 Admin-Reload-Listener (aber nur einmal pro Änderung)
+// 🔹 🔄 Admin-Reload-Listener (sicher, ohne Endlosschleife)
 let lastReloadTime = 0;
-onValue(ref(db, "reloadFlag/time"), (snap) => {
+const reloadRef = ref(db, "reloadFlag/time");
+
+const reloadListener = onValue(reloadRef, (snap) => {
   if (!snap.exists()) return;
   const newTime = snap.val();
-  if (newTime !== lastReloadTime) {
+  if (newTime && newTime !== lastReloadTime) {
     lastReloadTime = newTime;
     console.log("🔄 Admin hat Reload ausgelöst!");
+    // Listener abmelden, bevor reload
+    reloadRef.off(); 
     location.reload();
   }
 });

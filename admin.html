@@ -28,7 +28,8 @@
     <label id="numberLabel">Feste Zahl (1–50):</label><br>
     <input type="number" id="fixedNumber" min="1" max="50"><br>
 
-    <button id="saveBtn">💾 Speichern</button>
+    <button id="saveBtn">💾 Speichern</button><br>
+    <button id="reloadBtn">🔄 Alle Spieler neu laden</button>
     <p id="msg"></p>
   </div>
 
@@ -55,6 +56,7 @@
     const randomNumberSwitch = document.getElementById("randomNumberSwitch");
     const fixedNumber = document.getElementById("fixedNumber");
     const saveBtn = document.getElementById("saveBtn");
+    const reloadBtn = document.getElementById("reloadBtn");
     const msg = document.getElementById("msg");
 
     randomNumberSwitch.onchange = () => {
@@ -83,6 +85,13 @@
         fixedNumber: Number(fixedNumber.value)
       });
       msg.textContent = "✅ Gespeichert!";
+    };
+
+    // Button: Alle Spieler neu laden
+    reloadBtn.onclick = async () => {
+      // Einfach Zeitstempel setzen, die Spieler reagieren darauf
+      await set(ref(db, "reloadTrigger"), Date.now());
+      msg.textContent = "🔄 Alle Spieler werden neu geladen!";
     };
   </script>
 </body>

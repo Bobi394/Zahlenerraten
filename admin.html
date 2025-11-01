@@ -98,6 +98,7 @@ button:hover {
   <input type="number" id="fixedNumber" value="10">
 
   <button id="saveBtn">💾 Einstellungen speichern</button>
+  <button id="reloadBtn">🔄 Alle Spielerseiten neu laden</button>
 </section>
 
 <section>
@@ -130,6 +131,7 @@ const attemptsInput = document.getElementById("maxAttempts");
 const randomSelect = document.getElementById("randomNumber");
 const fixedInput = document.getElementById("fixedNumber");
 const saveBtn = document.getElementById("saveBtn");
+const reloadBtn = document.getElementById("reloadBtn");
 const requestsDiv = document.getElementById("requests");
 
 // 🔹 Einstellungen laden
@@ -160,6 +162,13 @@ saveBtn.onclick = async () => {
   alert("✅ Einstellungen gespeichert!");
 };
 
+// 🔹 Reload-Button — löst nur EIN Signal aus, das die Spieler-Seite einmal neu lädt
+reloadBtn.onclick = async () => {
+  const reloadRef = ref(db, "reloadFlag");
+  await set(reloadRef, { time: Date.now() });
+  alert("🔄 Spieler-Seiten werden neu geladen!");
+};
+
 // 🔹 Anfragen anzeigen
 onValue(ref(db, "requests"), (snapshot) => {
   requestsDiv.innerHTML = "";
@@ -170,7 +179,7 @@ onValue(ref(db, "requests"), (snapshot) => {
 
   const data = snapshot.val();
   for (const [key, req] of Object.entries(data)) {
-    if (req.status !== "offen") continue; // Nur offene Anfragen anzeigen
+    if (req.status !== "offen") continue; // Nur offene Anfragen
 
     const div = document.createElement("div");
     div.classList.add("request");
@@ -182,18 +191,14 @@ onValue(ref(db, "requests"), (snapshot) => {
     requestsDiv.appendChild(div);
   }
 
-  // Klick-Events für Buttons
+  // Klick-Events
   document.querySelectorAll("button[data-key]").forEach((btn) => {
     btn.onclick = async () => {
       const key = btn.getAttribute("data-key");
       const action = btn.getAttribute("data-action");
       const newStatus = action === "accept" ? "akzeptiert" : "abgelehnt";
       await update(ref(db, `requests/${key}`), { status: newStatus });
-
-      // Nach kurzer Verzögerung aus der Liste entfernen
-      setTimeout(() => {
-        remove(ref(db, `requests/${key}`));
-      }, 500);
+      setTimeout(() => remove(ref(db, `requests/${key}`)), 500);
     };
   });
 });

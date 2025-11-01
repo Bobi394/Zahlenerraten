@@ -1,115 +1,106 @@
 <!doctype html>
 <html lang="de">
 <head>
-<meta charset="utf-8">
-<title>Hotspot Admin 🔧</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<style>
-body { font-family: Arial; background:#111; color:#eee; text-align:center; padding:40px; }
-input,button,label { padding:10px; border-radius:8px; margin:5px; width:220px; }
-.box { background:#222; display:inline-block; padding:24px; border-radius:12px; }
-#msg { margin-top:10px; color:#9aa7b8; }
-</style>
+  <meta charset="utf-8">
+  <title>Hotspot Admin 🔧</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: Arial; background:#111; color:#eee; text-align:center; padding:40px; }
+    input,button,label { padding:10px; border-radius:8px; margin:5px; width:200px; }
+    .box { background:#222; display:inline-block; padding:30px; border-radius:12px; }
+    #msg { margin-top:10px; color:#9aa7b8; }
+  </style>
 </head>
 <body>
-<div class="box">
-<h1>Hotspot Admin 🔧</h1>
+  <div class="box">
+    <h1>Hotspot Admin 🔧</h1>
 
-<label>Hotspot Passwort (optional, wird nicht angezeigt, wenn Link gesetzt):</label><br>
-<input id="hotspotPassword" placeholder="Dein Passwort"><br>
+    <label>Hotspot Passwort:</label><br>
+    <input id="hotspotPassword" placeholder="Dein Passwort"><br>
 
-<label>Alternativer Link anzeigen:</label><br>
-<input id="linkURL" placeholder="z.B. https://example.com"><br>
+    <label>Max. Versuche:</label><br>
+    <input id="maxAttempts" type="number" min="1" max="50"><br>
 
-<label>Max. Versuche:</label><br>
-<input id="maxAttempts" type="number" min="1" max="999"><br>
+    <label>
+      <input type="checkbox" id="randomNumberSwitch"> Zufallszahl verwenden?
+    </label><br>
 
-<label>
-<input type="checkbox" id="randomNumberSwitch"> Zufallszahl verwenden?
-</label><br>
+    <label id="numberLabel">Feste Zahl (wenn Zufall aus):</label><br>
+    <input type="number" id="fixedNumber" min="1" max="100"><br>
 
-<label>Feste Zahl (wenn Zufall aus):</label><br>
-<input type="number" id="fixedNumber" min="1" max="1000000"><br>
+    <label>Zahlenbereich bei Zufall:</label><br>
+    Von: <input id="minNumber" type="number" value="1" min="1" style="width:80px;">
+    Bis: <input id="maxNumber" type="number" value="50" min="1" style="width:80px;"><br>
 
-<label>Zahlenbereich bei Zufall:</label><br>
-Von: <input id="minNumber" type="number" value="1" min="1" style="width:90px;">
-Bis: <input id="maxNumber" type="number" value="50" min="1" style="width:90px;"><br>
+    <button id="saveBtn">💾 Speichern</button><br>
+    <button id="reloadBtn">🔄 Alle Spieler neu laden</button>
+    <p id="msg"></p>
+  </div>
 
-<button id="saveBtn">💾 Speichern</button><br>
-<button id="reloadBtn">🔄 Alle Spieler neu laden</button>
-<p id="msg"></p>
-</div>
+  <script type="module">
+    const firebaseConfig = {
+      apiKey: "AIzaSyBSDffrKz3_AE_iuwOLuZNB0yWLStMysSI",
+      authDomain: "zahlenerraten.firebaseapp.com",
+      databaseURL: "https://zahlenerraten-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "zahlenerraten",
+      storageBucket: "zahlenerraten.firebasestorage.app",
+      messagingSenderId: "143969932071",
+      appId: "1:143969932071:web:850baabab3f9c0f2de0f02",
+      measurementId: "G-KP89LYZJMT"
+    };
 
-<script type="module">
-const firebaseConfig = {
-  apiKey: "AIzaSyBSDffrKz3_AE_iuwOLuZNB0yWLStMysSI",
-  authDomain: "zahlenerraten.firebaseapp.com",
-  databaseURL: "https://zahlenerraten-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "zahlenerraten",
-  storageBucket: "zahlenerraten.firebasestorage.app",
-  messagingSenderId: "143969932071",
-  appId: "1:143969932071:web:850baabab3f9c0f2de0f02",
-  measurementId: "G-KP89LYZJMT"
-};
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+    import { getDatabase, ref, set, get, child } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
-import { getDatabase, ref, set, get, child } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
 
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
+    const hotspotPassword = document.getElementById("hotspotPassword");
+    const maxAttempts = document.getElementById("maxAttempts");
+    const randomNumberSwitch = document.getElementById("randomNumberSwitch");
+    const fixedNumber = document.getElementById("fixedNumber");
+    const minNumber = document.getElementById("minNumber");
+    const maxNumberInput = document.getElementById("maxNumber");
+    const saveBtn = document.getElementById("saveBtn");
+    const reloadBtn = document.getElementById("reloadBtn");
+    const msg = document.getElementById("msg");
 
-const hotspotPassword = document.getElementById("hotspotPassword");
-const linkURL = document.getElementById("linkURL");
-const maxAttempts = document.getElementById("maxAttempts");
-const randomNumberSwitch = document.getElementById("randomNumberSwitch");
-const fixedNumber = document.getElementById("fixedNumber");
-const minNumber = document.getElementById("minNumber");
-const maxNumberInput = document.getElementById("maxNumber");
-const saveBtn = document.getElementById("saveBtn");
-const reloadBtn = document.getElementById("reloadBtn");
-const msg = document.getElementById("msg");
+    randomNumberSwitch.onchange = () => {
+      fixedNumber.disabled = randomNumberSwitch.checked;
+    };
 
-randomNumberSwitch.onchange = () => {
-  fixedNumber.disabled = randomNumberSwitch.checked;
-};
+    async function loadSettings() {
+      const snapshot = await get(child(ref(db), "settings"));
+      if(snapshot.exists()){
+        const data = snapshot.val();
+        hotspotPassword.value = data.password || "";
+        maxAttempts.value = data.maxAttempts || 6;
+        randomNumberSwitch.checked = data.randomNumber ?? true;
+        fixedNumber.value = data.fixedNumber || 1;
+        fixedNumber.disabled = data.randomNumber ?? true;
+        minNumber.value = data.minNumber || 1;
+        maxNumberInput.value = data.maxNumber || 50;
+      }
+    }
 
-async function loadSettings() {
-  const snapshot = await get(child(ref(db), "settings"));
-  if(snapshot.exists()){
-    const data = snapshot.val();
-    hotspotPassword.value = data.password || "";
-    linkURL.value = data.link || "";
-    maxAttempts.value = data.maxAttempts || 6;
-    randomNumberSwitch.checked = data.randomNumber ?? true;
-    fixedNumber.value = data.fixedNumber || 1;
-    fixedNumber.disabled = data.randomNumber ?? true;
-    minNumber.value = data.minNumber || 1;
-    maxNumberInput.value = data.maxNumber || 50;
-  }
-}
+    loadSettings();
 
-loadSettings();
+    saveBtn.onclick = async () => {
+      await set(ref(db, "settings"), {
+        password: hotspotPassword.value,
+        maxAttempts: Number(maxAttempts.value),
+        randomNumber: randomNumberSwitch.checked,
+        fixedNumber: Number(fixedNumber.value),
+        minNumber: Number(minNumber.value),
+        maxNumber: Number(maxNumberInput.value)
+      });
+      msg.textContent = "✅ Gespeichert!";
+    };
 
-saveBtn.onclick = async () => {
-  const minN = Number(minNumber.value) || 1;
-  const maxN = Number(maxNumberInput.value) || 50;
-  if(minN > maxN){ msg.textContent = "Fehler: 'Von' darf nicht größer als 'Bis' sein."; return; }
-  await set(ref(db, "settings"), {
-    password: hotspotPassword.value || "",
-    link: linkURL.value || "",
-    maxAttempts: Number(maxAttempts.value) || 6,
-    randomNumber: randomNumberSwitch.checked,
-    fixedNumber: Number(fixedNumber.value) || 1,
-    minNumber: minN,
-    maxNumber: maxN
-  });
-  msg.textContent = "✅ Gespeichert!";
-};
-
-reloadBtn.onclick = async () => {
-  await set(ref(db, "reloadTrigger"), Date.now());
-  msg.textContent = "🔄 Alle Spieler werden neu geladen!";
-};
-</script>
+    reloadBtn.onclick = async () => {
+      await set(ref(db, "reloadTrigger"), Date.now());
+      msg.textContent = "🔄 Alle Spieler werden neu geladen!";
+    };
+  </script>
 </body>
 </html>

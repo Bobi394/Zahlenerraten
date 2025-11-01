@@ -19,14 +19,18 @@
     <input id="hotspotPassword" placeholder="Dein Passwort"><br>
 
     <label>Max. Versuche:</label><br>
-    <input id="maxAttempts" type="number" min="1" max="20"><br>
+    <input id="maxAttempts" type="number" min="1" max="50"><br>
 
     <label>
-      <input type="checkbox" id="randomNumberSwitch"> Zahl zufällig wählen?
+      <input type="checkbox" id="randomNumberSwitch"> Zufallszahl verwenden?
     </label><br>
 
-    <label id="numberLabel">Feste Zahl (1–50):</label><br>
-    <input type="number" id="fixedNumber" min="1" max="50"><br>
+    <label id="numberLabel">Feste Zahl (wenn Zufall aus):</label><br>
+    <input type="number" id="fixedNumber" min="1" max="100"><br>
+
+    <label>Zahlenbereich bei Zufall:</label><br>
+    Von: <input id="minNumber" type="number" value="1" min="1" style="width:80px;">
+    Bis: <input id="maxNumber" type="number" value="50" min="1" style="width:80px;"><br>
 
     <button id="saveBtn">💾 Speichern</button><br>
     <button id="reloadBtn">🔄 Alle Spieler neu laden</button>
@@ -55,6 +59,8 @@
     const maxAttempts = document.getElementById("maxAttempts");
     const randomNumberSwitch = document.getElementById("randomNumberSwitch");
     const fixedNumber = document.getElementById("fixedNumber");
+    const minNumber = document.getElementById("minNumber");
+    const maxNumberInput = document.getElementById("maxNumber");
     const saveBtn = document.getElementById("saveBtn");
     const reloadBtn = document.getElementById("reloadBtn");
     const msg = document.getElementById("msg");
@@ -72,6 +78,8 @@
         randomNumberSwitch.checked = data.randomNumber ?? true;
         fixedNumber.value = data.fixedNumber || 1;
         fixedNumber.disabled = data.randomNumber ?? true;
+        minNumber.value = data.minNumber || 1;
+        maxNumberInput.value = data.maxNumber || 50;
       }
     }
 
@@ -82,14 +90,14 @@
         password: hotspotPassword.value,
         maxAttempts: Number(maxAttempts.value),
         randomNumber: randomNumberSwitch.checked,
-        fixedNumber: Number(fixedNumber.value)
+        fixedNumber: Number(fixedNumber.value),
+        minNumber: Number(minNumber.value),
+        maxNumber: Number(maxNumberInput.value)
       });
       msg.textContent = "✅ Gespeichert!";
     };
 
-    // Button: Alle Spieler neu laden
     reloadBtn.onclick = async () => {
-      // Einfach Zeitstempel setzen, die Spieler reagieren darauf
       await set(ref(db, "reloadTrigger"), Date.now());
       msg.textContent = "🔄 Alle Spieler werden neu geladen!";
     };

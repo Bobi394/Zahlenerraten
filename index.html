@@ -27,7 +27,6 @@
   </div>
 
   <script type="module">
-    // 🔹 Firebase Config hier einfügen
     const firebaseConfig = {
       apiKey: "AIzaSyBSDffrKz3_AE_iuwOLuZNB0yWLStMysSI",
       authDomain: "zahlenerraten.firebaseapp.com",
@@ -52,7 +51,7 @@
     const passwordBox = document.getElementById("passwordBox");
     const pw = document.getElementById("pw");
 
-    let randomNumber = Math.floor(Math.random() * 50) + 1;
+    let randomNumber = 1;
     let attemptsLeft = 0;
     let password = "";
 
@@ -62,6 +61,14 @@
         const data = snapshot.val();
         attemptsLeft = data.maxAttempts || 6;
         password = data.password || "";
+
+        // Zahl festlegen
+        if(data.randomNumber){
+          randomNumber = Math.floor(Math.random() * 50) + 1;
+        } else {
+          randomNumber = data.fixedNumber || 1;
+        }
+
         info.textContent = `Du hast ${attemptsLeft} Versuche! 😎`;
       } else {
         info.textContent = "⚠️ Einstellungen nicht gefunden.";

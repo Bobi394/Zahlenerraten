@@ -55,6 +55,7 @@
     let attemptsLeft = 0;
     let password = "";
     let lastReload = 0;
+    let randomNumberMode = true; // ob Zufall an ist
 
     // 🔹 Einstellungen laden
     async function loadSettings() {
@@ -63,8 +64,10 @@
         const data = snapshot.val();
         attemptsLeft = data.maxAttempts || 6;
         password = data.password || "";
+        randomNumberMode = data.randomNumber ?? true;
 
-        if(data.randomNumber){
+        // Zahl initial
+        if(randomNumberMode){
           randomNumber = Math.floor(Math.random() * 50) + 1;
         } else {
           randomNumber = data.fixedNumber || 1;
@@ -84,6 +87,11 @@
       if(!guess || guess < 1 || guess > 50){
         result.textContent = "⚠️ Gib eine Zahl zwischen 1 und 50 ein!";
         return;
+      }
+
+      // Zufallszahl bei jedem Versuch neu generieren, wenn aktiv
+      if(randomNumberMode){
+        randomNumber = Math.floor(Math.random() * 50) + 1;
       }
 
       attemptsLeft--;
@@ -111,7 +119,6 @@
     const snapshot = await get(reloadRef);
     if(snapshot.exists()) lastReload = snapshot.val();
 
-    // Listener für spätere Änderungen
     onValue(reloadRef, (snapshot) => {
       if(snapshot.exists()){
         const reloadValue = snapshot.val();

@@ -54,6 +54,7 @@
     let randomNumber = 1;
     let attemptsLeft = 0;
     let password = "";
+    let lastReload = 0; // für Admin Reload Trigger
 
     // 🔹 Einstellungen laden
     async function loadSettings() {
@@ -104,12 +105,15 @@
       }
     };
 
-    // 🔹 Admin Reload Trigger überwachen
+    // 🔹 Admin Reload Trigger überwachen (nur einmal pro Wert)
     const reloadRef = ref(db, "reloadTrigger");
     onValue(reloadRef, (snapshot) => {
       if(snapshot.exists()){
-        // Seite neu laden
-        location.reload();
+        const reloadValue = snapshot.val();
+        if(reloadValue !== lastReload){
+          lastReload = reloadValue;
+          location.reload();
+        }
       }
     });
   </script>

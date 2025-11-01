@@ -14,7 +14,7 @@
 <body>
   <div class="box">
     <h1>🔥 Hotspot Zahlenspiel 🔥</h1>
-    <p>Errate die Zahl!</p>
+    <p id="rangeInfo">Lade Bereich…</p>
 
     <p id="info">Lade Einstellungen…</p>
     <input id="guessInput" type="number" placeholder="Zahl eingeben">
@@ -44,6 +44,7 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
+    const rangeInfo = document.getElementById("rangeInfo");
     const info = document.getElementById("info");
     const guessInput = document.getElementById("guessInput");
     const guessBtn = document.getElementById("guessBtn");
@@ -78,8 +79,10 @@
         }
 
         info.textContent = `Du hast ${attemptsLeft} Versuche! 😎`;
+        rangeInfo.textContent = `Errate eine Zahl zwischen ${minNumber} und ${maxNumber}`;
       } else {
         info.textContent = "⚠️ Einstellungen nicht gefunden.";
+        rangeInfo.textContent = "";
       }
     }
 

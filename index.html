@@ -2,77 +2,47 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<title>Hotspot Zahlenspiel 🦎</title>
+<title>Zahlen-Rätsel 🧩</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
 body {
   font-family: Arial;
-  background: #101820;
+  background: #0f172a;
   color: #fff;
   text-align: center;
   padding: 40px;
 }
-
-.box {
-  background: #1e293b;
-  display: inline-block;
-  padding: 30px;
-  border-radius: 12px;
-  width: 90%;
-  max-width: 400px;
-}
+h1 { color: #38bdf8; }
 
 input, button {
-  padding: 12px;
-  margin: 8px 0;
+  padding: 10px;
+  margin: 8px;
   border-radius: 8px;
   border: none;
-  width: 90%;
-  max-width: 300px;
   font-size: 16px;
 }
-
+input { width: 80px; text-align: center; }
 button {
   background-color: #3b82f6;
   color: #fff;
   cursor: pointer;
 }
+button:hover { background-color: #2563eb; }
 
-button:hover {
-  background-color: #2563eb;
-}
-
-#reward {
+#info, #hint, #result {
   margin-top: 15px;
-  font-weight: bold;
-  color: #9ee7ff;
-  word-break: break-all;
-  user-select: all;
-}
-
-#result {
-  margin-top: 15px;
-  font-weight: bold;
-}
-
-#hint {
-  margin-top: 10px;
-  color: #9aa7b8;
+  font-size: 18px;
 }
 </style>
 </head>
 <body>
-<div class="box">
-<h1>🔥 Hotspot Zahlenspiel 🔥</h1>
-<p id="rangeInfo">Lade Bereich…</p>
-<p id="info">Lade Einstellungen…</p>
-
-<input id="guessInput" type="number" placeholder="Zahl eingeben">
+<h1>🔢 Zahlen erraten</h1>
+<p id="rangeText">Lade Einstellungen...</p>
+<input type="number" id="guess" placeholder="Zahl">
 <button id="guessBtn">Raten</button>
-
-<p id="result"></p>
 <p id="hint"></p>
-</div>
+<p id="info"></p>
+<p id="result"></p>
 
 <script type="module">
 const firebaseConfig = {
@@ -87,86 +57,94 @@ const firebaseConfig = {
 };
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
-import { getDatabase, ref, get, child } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
+import { getDatabase, ref, get, onValue } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-const rangeInfo = document.getElementById("rangeInfo");
-const info = document.getElementById("info");
-const guessInput = document.getElementById("guessInput");
+const guessInput = document.getElementById("guess");
 const guessBtn = document.getElementById("guessBtn");
-const result = document.getElementById("result");
+const info = document.getElementById("info");
 const hint = document.getElementById("hint");
+const result = document.getElementById("result");
+const rangeText = document.getElementById("rangeText");
 
+let settings = {};
+let currentNumber = 0;
 let attemptsLeft = 0;
-let randomNumberMode = true;
-let minNumber = 1;
-let maxNumber = 50;
-let password = "";
-let link = "";
 
+// 🔹 Einstellungen laden
 async function loadSettings() {
-  const snapshot = await get(child(ref(db), "settings"));
+  const snapshot = await get(ref(db, "settings"));
   if (snapshot.exists()) {
-    const data = snapshot.val();
-    attemptsLeft = data.maxAttempts || 6;
-    randomNumberMode = data.randomNumber ?? true;
-    minNumber = Number(data.minNumber) || 1;
-    maxNumber = Number(data.maxNumber) || 50;
-    password = data.password || "";
-    link = data.link || "";
-    info.textContent = `Du hast ${attemptsLeft} Versuche! 😎`;
-    rangeInfo.textContent = `Errate eine Zahl zwischen ${minNumber} und ${maxNumber}`;
+    settings = snapshot.val();
+    rangeText.textContent = `Errate die Zahl zwischen ${settings.minNumber} und ${settings.maxNumber}`;
+    resetGame();
   } else {
-    info.textContent = "⚠️ Einstellungen nicht gefunden.";
-    rangeInfo.textContent = "";
+    rangeText.textContent = "Fehler beim Laden der Einstellungen!";
   }
 }
 
-await loadSettings();
+// 🔹 Neue Zahl starten
+function resetGame() {
+  const min = settings.minNumber || 1;
+  const max = settings.maxNumber || 50;
+  const isRandom = settings.randomNumber;
+  currentNumber = isRandom
+    ? Math.floor(Math.random() * (max - min + 1)) + min
+    : Number(settings.fixedNumber) || 10;
+  attemptsLeft = settings.maxAttempts || 5;
+  info.textContent = `Du hast ${attemptsLeft} Versuche.`;
+  hint.textContent = "";
+  result.textContent = "";
+  guessInput.disabled = false;
+  guessBtn.disabled = false;
+}
 
-guessBtn.onclick = async () => {
+// 🔹 Rateversuch
+guessBtn.onclick = () => {
   const guess = Number(guessInput.value);
-  if (!Number.isFinite(guess) || guess < minNumber || guess > maxNumber) {
-    result.textContent = `⚠️ Gib eine Zahl zwischen ${minNumber} und ${maxNumber} ein!`;
+  if (!guess) {
+    hint.textContent = "⚠️ Bitte gib eine gültige Zahl ein!";
     return;
   }
 
-  let currentNumber;
-  if (randomNumberMode) {
-    currentNumber = Math.floor(Math.random() * (maxNumber - minNumber + 1)) + minNumber;
-  } else {
-    const fSnap = await get(child(ref(db, "settings/fixedNumber")));
-    currentNumber = fSnap.exists() ? Number(fSnap.val()) : minNumber;
-  }
-
   attemptsLeft--;
-
   if (guess === currentNumber) {
-    result.textContent = "✅ Richtig geraten!";
-    guessBtn.disabled = true;
-    guessInput.disabled = true;
-    hint.textContent = "";
-
-    // 🔹 Warte kurz, bevor weitergeleitet wird
+    result.textContent = "🎉 Richtig! Du wirst weitergeleitet...";
     setTimeout(() => {
-      window.location.href = "anfrage.html";
-    }, 1500); // 1,5 Sekunden warten
+      window.location.href = "anfrage.html"; // Weiter zur Anfrage-Seite
+    }, 1000);
+    guessInput.disabled = true;
+    guessBtn.disabled = true;
     return;
   }
 
   if (attemptsLeft <= 0) {
-    result.textContent = `❌ Keine Versuche mehr! Letzte Zahl war ${currentNumber}.`;
-    guessBtn.disabled = true;
+    result.textContent = `❌ Keine Versuche mehr! Die richtige Zahl war ${currentNumber}.`;
     guessInput.disabled = true;
-    hint.textContent = "";
+    guessBtn.disabled = true;
     return;
   }
 
   hint.textContent = guess > currentNumber ? "📉 Zu hoch!" : "📈 Zu niedrig!";
-  info.textContent = `Noch ${attemptsLeft} Versuche`;
+  info.textContent = `Noch ${attemptsLeft} Versuche.`;
 };
+
+// 🔹 🔄 Admin-Reload-Listener (aber nur einmal pro Änderung)
+let lastReloadTime = 0;
+onValue(ref(db, "reloadFlag/time"), (snap) => {
+  if (!snap.exists()) return;
+  const newTime = snap.val();
+  if (newTime !== lastReloadTime) {
+    lastReloadTime = newTime;
+    console.log("🔄 Admin hat Reload ausgelöst!");
+    location.reload();
+  }
+});
+
+// Spiel starten
+loadSettings();
 </script>
 </body>
 </html>

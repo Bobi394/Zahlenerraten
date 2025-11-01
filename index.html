@@ -1,138 +1,133 @@
 <!doctype html>
 <html lang="de">
 <head>
-  <meta charset="utf-8">
-  <title>Hotspot Ratespiel 🦎</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <style>
-    body { font-family: Arial; background:#101820; color:#fff; text-align:center; padding:40px; }
-    input,button { padding:10px; border-radius:8px; margin:5px; width:200px; }
-    .box { background:#1e293b; display:inline-block; padding:30px; border-radius:12px; }
-    .secret { font-family: monospace; background:#000; padding:6px; border-radius:8px; }
-  </style>
+<meta charset="utf-8">
+<title>Hotspot Ratespiel 🦎</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body { font-family: Arial; background:#101820; color:#fff; text-align:center; padding:40px; }
+input,button,a { padding:10px; border-radius:8px; margin:5px; width:220px; display:inline-block; text-decoration:none; color:inherit; }
+.box { background:#1e293b; display:inline-block; padding:30px; border-radius:12px; }
+#result { margin-top:15px; }
+#reward { margin-top:12px; font-weight:bold; }
+</style>
 </head>
 <body>
-  <div class="box">
-    <h1>🔥 Hotspot Zahlenspiel 🔥</h1>
-    <p id="rangeInfo">Lade Bereich…</p>
+<div class="box">
+<h1>🔥 Hotspot Zahlenspiel 🔥</h1>
+<p id="rangeInfo">Lade Bereich…</p>
+<p id="info">Lade Einstellungen…</p>
+<input id="guessInput" type="number" placeholder="Zahl eingeben">
+<button id="guessBtn">Raten</button>
+<p id="result"></p>
+<p id="reward"></p>
+<p id="hint"></p>
+</div>
 
-    <p id="info">Lade Einstellungen…</p>
-    <input id="guessInput" type="number" placeholder="Zahl eingeben">
-    <button id="guessBtn">Raten</button>
+<script type="module">
+const firebaseConfig = {
+  apiKey: "AIzaSyBSDffrKz3_AE_iuwOLuZNB0yWLStMysSI",
+  authDomain: "zahlenerraten.firebaseapp.com",
+  databaseURL: "https://zahlenerraten-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "zahlenerraten",
+  storageBucket: "zahlenerraten.firebasestorage.app",
+  messagingSenderId: "143969932071",
+  appId: "1:143969932071:web:850baabab3f9c0f2de0f02",
+  measurementId: "G-KP89LYZJMT"
+};
 
-    <p id="result"></p>
-    <div id="passwordBox" style="display:none; margin-top:15px;">
-      🎉 Dein Hotspot-Passwort: <span class="secret" id="pw"></span>
-    </div>
-  </div>
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+import { getDatabase, ref, get, child, onValue } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
 
-  <script type="module">
-    const firebaseConfig = {
-      apiKey: "AIzaSyBSDffrKz3_AE_iuwOLuZNB0yWLStMysSI",
-      authDomain: "zahlenerraten.firebaseapp.com",
-      databaseURL: "https://zahlenerraten-default-rtdb.europe-west1.firebasedatabase.app",
-      projectId: "zahlenerraten",
-      storageBucket: "zahlenerraten.firebasestorage.app",
-      messagingSenderId: "143969932071",
-      appId: "1:143969932071:web:850baabab3f9c0f2de0f02",
-      measurementId: "G-KP89LYZJMT"
-    };
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
 
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
-    import { getDatabase, ref, get, child, onValue } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
+const rangeInfo = document.getElementById("rangeInfo");
+const info = document.getElementById("info");
+const guessInput = document.getElementById("guessInput");
+const guessBtn = document.getElementById("guessBtn");
+const result = document.getElementById("result");
+const reward = document.getElementById("reward");
+const hint = document.getElementById("hint");
 
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
+let attemptsLeft = 0;
+let randomNumberMode = true;
+let minNumber = 1;
+let maxNumber = 50;
+let lastReload = 0;
+let password = "";
+let link = "";
 
-    const rangeInfo = document.getElementById("rangeInfo");
-    const info = document.getElementById("info");
-    const guessInput = document.getElementById("guessInput");
-    const guessBtn = document.getElementById("guessBtn");
-    const result = document.getElementById("result");
-    const passwordBox = document.getElementById("passwordBox");
-    const pw = document.getElementById("pw");
+async function loadSettings(){
+  const snapshot = await get(child(ref(db), "settings"));
+  if(snapshot.exists()){
+    const data = snapshot.val();
+    attemptsLeft = data.maxAttempts || 6;
+    randomNumberMode = data.randomNumber ?? true;
+    minNumber = Number(data.minNumber) || 1;
+    maxNumber = Number(data.maxNumber) || 50;
+    password = data.password || "";
+    link = data.link || "";
+    info.textContent = `Du hast ${attemptsLeft} Versuche! 😎`;
+    rangeInfo.textContent = `Errate eine Zahl zwischen ${minNumber} und ${maxNumber}`;
+  }
+}
 
-    let randomNumber = 1;
-    let attemptsLeft = 0;
-    let password = "";
-    let lastReload = 0;
-    let randomNumberMode = true;
-    let minNumber = 1;
-    let maxNumber = 50;
+await loadSettings();
 
-    // 🔹 Einstellungen laden
-    async function loadSettings() {
-      const snapshot = await get(child(ref(db), "settings"));
-      if(snapshot.exists()){
-        const data = snapshot.val();
-        attemptsLeft = data.maxAttempts || 6;
-        password = data.password || "";
-        randomNumberMode = data.randomNumber ?? true;
-        minNumber = data.minNumber || 1;
-        maxNumber = data.maxNumber || 50;
+// Reload
+const reloadRef = ref(db,"reloadTrigger");
+const sn = await get(reloadRef);
+if(sn.exists()) lastReload = sn.val();
+onValue(reloadRef,(snapshot)=>{
+  if(snapshot.exists()){
+    const val = snapshot.val();
+    if(val!==lastReload){ lastReload=val; location.reload(); }
+  }
+});
 
-        // Initialzahl
-        if(randomNumberMode){
-          randomNumber = Math.floor(Math.random() * (maxNumber - minNumber + 1)) + minNumber;
-        } else {
-          randomNumber = data.fixedNumber || 1;
-        }
+// Raten
+guessBtn.onclick = async ()=>{
+  const guess = Number(guessInput.value);
+  if(!Number.isFinite(guess)||guess<minNumber||guess>maxNumber){
+    result.textContent=`⚠️ Gib eine Zahl zwischen ${minNumber} und ${maxNumber} ein!`;
+    return;
+  }
 
-        info.textContent = `Du hast ${attemptsLeft} Versuche! 😎`;
-        rangeInfo.textContent = `Errate eine Zahl zwischen ${minNumber} und ${maxNumber}`;
-      } else {
-        info.textContent = "⚠️ Einstellungen nicht gefunden.";
-        rangeInfo.textContent = "";
-      }
+  let currentNumber;
+  if(randomNumberMode){
+    currentNumber = Math.floor(Math.random()*(maxNumber-minNumber+1))+minNumber;
+  } else {
+    const fSnap = await get(child(ref(db,"settings/fixedNumber")));
+    currentNumber = fSnap.exists()? Number(fSnap.val()) : minNumber;
+  }
+
+  attemptsLeft--;
+
+  if(guess===currentNumber){
+    result.textContent="✅ Richtig geraten!";
+    guessBtn.disabled=true;
+    guessInput.disabled=true;
+
+    // Zeige Link, falls gesetzt, sonst Passwort
+    if(link){
+      reward.innerHTML = `🎯 Dein Link: <a href="${link}" target="_blank">${link}</a>`;
+    } else {
+      reward.textContent = `🔑 Passwort: ${password}`;
     }
+    return;
+  }
 
-    await loadSettings();
+  if(attemptsLeft<=0){
+    result.textContent=`❌ Keine Versuche mehr! Letzte Zahl war ${currentNumber}.`;
+    guessBtn.disabled=true;
+    guessInput.disabled=true;
+    return;
+  }
 
-    // 🔹 Tipp-Button
-    guessBtn.onclick = () => {
-      const guess = Number(guessInput.value);
-      if(!guess || guess < minNumber || guess > maxNumber){
-        result.textContent = `⚠️ Gib eine Zahl zwischen ${minNumber} und ${maxNumber} ein!`;
-        return;
-      }
-
-      // Zufallszahl bei jedem Versuch neu generieren, falls aktiviert
-      if(randomNumberMode){
-        randomNumber = Math.floor(Math.random() * (maxNumber - minNumber + 1)) + minNumber;
-      }
-
-      attemptsLeft--;
-
-      if(guess === randomNumber){
-        result.textContent = "✅ Richtig geraten!";
-        pw.textContent = password;
-        passwordBox.style.display = "block";
-        guessBtn.disabled = true;
-        guessInput.disabled = true;
-      } else if(attemptsLeft <= 0){
-        result.textContent = `❌ Keine Versuche mehr! Die Zahl war ${randomNumber}.`;
-        guessBtn.disabled = true;
-        guessInput.disabled = true;
-      } else {
-        result.textContent = guess > randomNumber ? "📉 Zu hoch!" : "📈 Zu niedrig!";
-        info.textContent = `Noch ${attemptsLeft} Versuche`;
-      }
-    };
-
-    // 🔹 Admin Reload Trigger überwachen
-    const reloadRef = ref(db, "reloadTrigger");
-    const snapshot = await get(reloadRef);
-    if(snapshot.exists()) lastReload = snapshot.val();
-
-    onValue(reloadRef, (snapshot) => {
-      if(snapshot.exists()){
-        const reloadValue = snapshot.val();
-        if(reloadValue !== lastReload){
-          lastReload = reloadValue;
-          location.reload();
-        }
-      }
-    });
-  </script>
+  hint.textContent = guess>currentNumber?"📉 Zu hoch!":"📈 Zu niedrig!";
+  info.textContent = `Noch ${attemptsLeft} Versuche`;
+};
+</script>
 </body>
 </html>

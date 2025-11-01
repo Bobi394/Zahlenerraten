@@ -71,7 +71,7 @@ const firebaseConfig = {
 };
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
-import { getDatabase, ref, push, set, onValue, get, child } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
+import { getDatabase, ref, push, set, onValue, get, child, query, orderByChild, equalTo } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
@@ -84,14 +84,24 @@ const passwordP = document.getElementById("password");
 let requestKey = null;
 let password = "";
 
-// Passwort aus settings laden
+// 🔹 Passwort aus settings laden
 async function loadPassword() {
   const snapshot = await get(child(ref(db), "settings/password"));
   if (snapshot.exists()) password = snapshot.val();
 }
-
 await loadPassword();
 
+// 🔹 Überprüfen, ob der Spieler schon eine Anfrage hat
+async function hasOpenRequest(name) {
+  const snap = await get(ref(db, "requests"));
+  if (!snap.exists()) return false;
+  const data = snap.val();
+  return Object.values(data).some(
+    (r) => r.name === name && r.status === "offen"
+  );
+}
+
+// 🔹 Anfrage senden
 sendBtn.onclick = async () => {
   const name = nameInput.value.trim();
   if (!name) {
@@ -99,7 +109,13 @@ sendBtn.onclick = async () => {
     return;
   }
 
-  // Anfrage in Firebase speichern
+  // Prüfen ob bereits eine offene Anfrage existiert
+  if (await hasOpenRequest(name)) {
+    statusP.textContent = "🚫 Du hast bereits eine offene Anfrage! Bitte warte, bis sie beantwortet wurde.";
+    return;
+  }
+
+  // Anfrage erstellen
   const newRef = push(ref(db, "requests"));
   await set(newRef, {
     name: name,
@@ -111,12 +127,11 @@ sendBtn.onclick = async () => {
   nameInput.disabled = true;
   sendBtn.disabled = true;
 
-  // Überwache Status in Echtzeit
+  // Status in Echtzeit überwachen
   const reqRef = ref(db, `requests/${requestKey}/status`);
   onValue(reqRef, (snap) => {
     if (!snap.exists()) return;
     const status = snap.val();
-
     if (status === "akzeptiert") {
       statusP.textContent = "🎉 Anfrage akzeptiert!";
       passwordP.textContent = `🔑 Hotspot-Passwort: ${password}`;

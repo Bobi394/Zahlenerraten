@@ -1,40 +1,117 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
-import { getDatabase, ref, get, child, onValue } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <title>Hotspot Ratespiel 🦎</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: Arial; background:#101820; color:#fff; text-align:center; padding:40px; }
+    input,button { padding:10px; border-radius:8px; margin:5px; width:200px; }
+    .box { background:#1e293b; display:inline-block; padding:30px; border-radius:12px; }
+    .secret { font-family: monospace; background:#000; padding:6px; border-radius:8px; }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h1>🔥 Hotspot Zahlenspiel 🔥</h1>
+    <p>Errate die Zahl zwischen 1 und 50!</p>
 
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
+    <p id="info">Lade Einstellungen…</p>
+    <input id="guessInput" type="number" min="1" max="50" placeholder="Zahl eingeben">
+    <button id="guessBtn">Raten</button>
 
-let randomNumber = 1;
-let attemptsLeft = 0;
-let password = "";
+    <p id="result"></p>
+    <div id="passwordBox" style="display:none; margin-top:15px;">
+      🎉 Dein Hotspot-Passwort: <span class="secret" id="pw"></span>
+    </div>
+  </div>
 
-// Einstellungen laden wie vorher
-async function loadSettings() {
-  const snapshot = await get(child(ref(db), "settings"));
-  if(snapshot.exists()){
-    const data = snapshot.val();
-    attemptsLeft = data.maxAttempts || 6;
-    password = data.password || "";
+  <script type="module">
+    const firebaseConfig = {
+      apiKey: "AIzaSyBSDffrKz3_AE_iuwOLuZNB0yWLStMysSI",
+      authDomain: "zahlenerraten.firebaseapp.com",
+      databaseURL: "https://zahlenerraten-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "zahlenerraten",
+      storageBucket: "zahlenerraten.firebasestorage.app",
+      messagingSenderId: "143969932071",
+      appId: "1:143969932071:web:850baabab3f9c0f2de0f02",
+      measurementId: "G-KP89LYZJMT"
+    };
 
-    if(data.randomNumber){
-      randomNumber = Math.floor(Math.random() * 50) + 1;
-    } else {
-      randomNumber = data.fixedNumber || 1;
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+    import { getDatabase, ref, get, child, onValue } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const info = document.getElementById("info");
+    const guessInput = document.getElementById("guessInput");
+    const guessBtn = document.getElementById("guessBtn");
+    const result = document.getElementById("result");
+    const passwordBox = document.getElementById("passwordBox");
+    const pw = document.getElementById("pw");
+
+    let randomNumber = 1;
+    let attemptsLeft = 0;
+    let password = "";
+
+    // 🔹 Einstellungen laden
+    async function loadSettings() {
+      const snapshot = await get(child(ref(db), "settings"));
+      if(snapshot.exists()){
+        const data = snapshot.val();
+        attemptsLeft = data.maxAttempts || 6;
+        password = data.password || "";
+
+        // Zahl festlegen
+        if(data.randomNumber){
+          randomNumber = Math.floor(Math.random() * 50) + 1;
+        } else {
+          randomNumber = data.fixedNumber || 1;
+        }
+
+        info.textContent = `Du hast ${attemptsLeft} Versuche! 😎`;
+      } else {
+        info.textContent = "⚠️ Einstellungen nicht gefunden.";
+      }
     }
 
-    info.textContent = `Du hast ${attemptsLeft} Versuche! 😎`;
-  } else {
-    info.textContent = "⚠️ Einstellungen nicht gefunden.";
-  }
-}
+    await loadSettings();
 
-await loadSettings();
+    // 🔹 Tipp-Button
+    guessBtn.onclick = () => {
+      const guess = Number(guessInput.value);
+      if(!guess || guess < 1 || guess > 50){
+        result.textContent = "⚠️ Gib eine Zahl zwischen 1 und 50 ein!";
+        return;
+      }
 
-// 🔹 Überwachen, ob Admin den Reload-Button gedrückt hat
-const reloadRef = ref(db, "reloadTrigger");
-onValue(reloadRef, (snapshot) => {
-  if(snapshot.exists()){
-    // Seite neu laden
-    location.reload();
-  }
-});
+      attemptsLeft--;
+
+      if(guess === randomNumber){
+        result.textContent = "✅ Richtig geraten!";
+        pw.textContent = password;
+        passwordBox.style.display = "block";
+        guessBtn.disabled = true;
+        guessInput.disabled = true;
+      } else if(attemptsLeft <= 0){
+        result.textContent = `❌ Keine Versuche mehr! Die Zahl war ${randomNumber}.`;
+        guessBtn.disabled = true;
+        guessInput.disabled = true;
+      } else {
+        result.textContent = guess > randomNumber ? "📉 Zu hoch!" : "📈 Zu niedrig!";
+        info.textContent = `Noch ${attemptsLeft} Versuche`;
+      }
+    };
+
+    // 🔹 Admin Reload Trigger überwachen
+    const reloadRef = ref(db, "reloadTrigger");
+    onValue(reloadRef, (snapshot) => {
+      if(snapshot.exists()){
+        // Seite neu laden
+        location.reload();
+      }
+    });
+  </script>
+</body>
+</html>

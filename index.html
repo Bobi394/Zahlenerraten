@@ -1,15 +1,16 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="de">
 <head>
-<meta charset="utf-8">
-<title>Hotspot Ratespiel 🦎</title>
+<meta charset="UTF-8">
+<title>Hotspot Zahlenspiel 🦎</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
 body { font-family: Arial; background:#101820; color:#fff; text-align:center; padding:40px; }
-input,button,a { padding:10px; border-radius:8px; margin:5px; width:220px; display:inline-block; text-decoration:none; color:inherit; }
+input, button, a { padding:10px; border-radius:8px; margin:5px; width:220px; display:block; text-decoration:none; color:#fff; background:#1e293b; border:none; }
 .box { background:#1e293b; display:inline-block; padding:30px; border-radius:12px; }
-#result { margin-top:15px; }
-#reward { margin-top:12px; font-weight:bold; }
+#result { margin-top:15px; font-weight:bold; }
+#reward { margin-top:15px; font-weight:bold; color:#9ee7ff; }
+#hint { margin-top:10px; color:#9aa7b8; }
 </style>
 </head>
 <body>
@@ -17,11 +18,13 @@ input,button,a { padding:10px; border-radius:8px; margin:5px; width:220px; displ
 <h1>🔥 Hotspot Zahlenspiel 🔥</h1>
 <p id="rangeInfo">Lade Bereich…</p>
 <p id="info">Lade Einstellungen…</p>
+
 <input id="guessInput" type="number" placeholder="Zahl eingeben">
 <button id="guessBtn">Raten</button>
+
 <p id="result"></p>
-<p id="reward"></p>
 <p id="hint"></p>
+<p id="reward"></p>
 </div>
 
 <script type="module">
@@ -47,14 +50,13 @@ const info = document.getElementById("info");
 const guessInput = document.getElementById("guessInput");
 const guessBtn = document.getElementById("guessBtn");
 const result = document.getElementById("result");
-const reward = document.getElementById("reward");
 const hint = document.getElementById("hint");
+const reward = document.getElementById("reward");
 
 let attemptsLeft = 0;
 let randomNumberMode = true;
 let minNumber = 1;
 let maxNumber = 50;
-let lastReload = 0;
 let password = "";
 let link = "";
 
@@ -70,23 +72,14 @@ async function loadSettings(){
     link = data.link || "";
     info.textContent = `Du hast ${attemptsLeft} Versuche! 😎`;
     rangeInfo.textContent = `Errate eine Zahl zwischen ${minNumber} und ${maxNumber}`;
+  } else {
+    info.textContent = "⚠️ Einstellungen nicht gefunden.";
+    rangeInfo.textContent = "";
   }
 }
 
 await loadSettings();
 
-// Reload
-const reloadRef = ref(db,"reloadTrigger");
-const sn = await get(reloadRef);
-if(sn.exists()) lastReload = sn.val();
-onValue(reloadRef,(snapshot)=>{
-  if(snapshot.exists()){
-    const val = snapshot.val();
-    if(val!==lastReload){ lastReload=val; location.reload(); }
-  }
-});
-
-// Raten
 guessBtn.onclick = async ()=>{
   const guess = Number(guessInput.value);
   if(!Number.isFinite(guess)||guess<minNumber||guess>maxNumber){
@@ -94,6 +87,7 @@ guessBtn.onclick = async ()=>{
     return;
   }
 
+  // Zahl bestimmen
   let currentNumber;
   if(randomNumberMode){
     currentNumber = Math.floor(Math.random()*(maxNumber-minNumber+1))+minNumber;
@@ -104,12 +98,12 @@ guessBtn.onclick = async ()=>{
 
   attemptsLeft--;
 
-  if(guess===currentNumber){
-    result.textContent="✅ Richtig geraten!";
+  if(guess === currentNumber){
+    result.textContent = "✅ Richtig geraten!";
     guessBtn.disabled=true;
     guessInput.disabled=true;
+    hint.textContent="";
 
-    // Zeige Link, falls gesetzt, sonst Passwort
     if(link){
       reward.innerHTML = `🎯 Dein Link: <a href="${link}" target="_blank">${link}</a>`;
     } else {
@@ -118,10 +112,11 @@ guessBtn.onclick = async ()=>{
     return;
   }
 
-  if(attemptsLeft<=0){
+  if(attemptsLeft <= 0){
     result.textContent=`❌ Keine Versuche mehr! Letzte Zahl war ${currentNumber}.`;
     guessBtn.disabled=true;
     guessInput.disabled=true;
+    hint.textContent="";
     return;
   }
 

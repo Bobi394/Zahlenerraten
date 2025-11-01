@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     body { font-family: Arial; background:#111; color:#eee; text-align:center; padding:40px; }
-    input,button { padding:10px; border-radius:8px; margin:5px; width:200px; }
+    input,button,label { padding:10px; border-radius:8px; margin:5px; width:200px; }
     .box { background:#222; display:inline-block; padding:30px; border-radius:12px; }
     #msg { margin-top:10px; color:#9aa7b8; }
   </style>
@@ -14,16 +14,25 @@
 <body>
   <div class="box">
     <h1>Hotspot Admin 🔧</h1>
+
     <label>Hotspot Passwort:</label><br>
     <input id="hotspotPassword" placeholder="Dein Passwort"><br>
+
     <label>Max. Versuche:</label><br>
     <input id="maxAttempts" type="number" min="1" max="20"><br>
+
+    <label>
+      <input type="checkbox" id="randomNumberSwitch"> Zahl zufällig wählen?
+    </label><br>
+
+    <label id="numberLabel">Feste Zahl (1–50):</label><br>
+    <input type="number" id="fixedNumber" min="1" max="50"><br>
+
     <button id="saveBtn">💾 Speichern</button>
     <p id="msg"></p>
   </div>
 
   <script type="module">
-    // 🔹 Firebase Config einfügen
     const firebaseConfig = {
       apiKey: "AIzaSyBSDffrKz3_AE_iuwOLuZNB0yWLStMysSI",
       authDomain: "zahlenerraten.firebaseapp.com",
@@ -36,21 +45,45 @@
     };
 
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
-    import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
+    import { getDatabase, ref, set, get, child } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
     const hotspotPassword = document.getElementById("hotspotPassword");
     const maxAttempts = document.getElementById("maxAttempts");
+    const randomNumberSwitch = document.getElementById("randomNumberSwitch");
+    const fixedNumber = document.getElementById("fixedNumber");
     const saveBtn = document.getElementById("saveBtn");
     const msg = document.getElementById("msg");
 
-    // Einstellungen speichern
+    // Elemente ein/ausblenden je nach Schalter
+    randomNumberSwitch.onchange = () => {
+      fixedNumber.disabled = randomNumberSwitch.checked;
+    };
+
+    // Einstellungen aus DB laden
+    async function loadSettings() {
+      const snapshot = await get(child(ref(db), "settings"));
+      if(snapshot.exists()){
+        const data = snapshot.val();
+        hotspotPassword.value = data.password || "";
+        maxAttempts.value = data.maxAttempts || 6;
+        randomNumberSwitch.checked = data.randomNumber ?? true;
+        fixedNumber.value = data.fixedNumber || 1;
+        fixedNumber.disabled = data.randomNumber ?? true;
+      }
+    }
+
+    loadSettings();
+
+    // Speichern
     saveBtn.onclick = async () => {
       await set(ref(db, "settings"), {
         password: hotspotPassword.value,
-        maxAttempts: Number(maxAttempts.value)
+        maxAttempts: Number(maxAttempts.value),
+        randomNumber: randomNumberSwitch.checked,
+        fixedNumber: Number(fixedNumber.value)
       });
       msg.textContent = "✅ Gespeichert!";
     };

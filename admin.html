@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hotspot Admin 🔒</title>
+  <style>
+    body { font-family: Arial; background:#111; color:#eee; text-align:center; padding:40px; }
+    input,button { padding:10px; border-radius:8px; margin:5px; width:200px; }
+    .box { background:#222; display:inline-block; padding:30px; border-radius:12px; }
+    #settings { display:none; margin-top:20px; }
+    #msg { margin-top:10px; color:#9aa7b8; }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h1>Admin Login 🔐</h1>
+    <div id="loginUI">
+      <input id="email" type="email" placeholder="Email"><br>
+      <input id="password" type="password" placeholder="Passwort"><br>
+      <button id="loginBtn">Login</button>
+      <p id="loginMsg"></p>
+    </div>
+
+    <div id="settings">
+      <h2>Hotspot Einstellungen ⚡</h2>
+      <label>Hotspot Passwort:</label><br>
+      <input id="hotspotPassword" placeholder="Dein Passwort"><br>
+      <label>Max. Versuche:</label><br>
+      <input id="maxAttempts" type="number" min="1" max="20"><br>
+      <button id="saveBtn">💾 Speichern</button>
+      <button id="logoutBtn">Ausloggen</button>
+      <p id="msg"></p>
+    </div>
+  </div>
+
+  <script type="module">
+    // 🔹 Firebase Config hier einsetzen
+    const firebaseConfig = {
+      apiKey: "AIzaSyBSDffrKz3_AE_iuwOLuZNB0yWLStMysSI",
+      authDomain: "zahlenerraten.firebaseapp.com",
+      databaseURL: "https://zahlenerraten-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "zahlenerraten",
+      storageBucket: "zahlenerraten.firebasestorage.app",
+      messagingSenderId: "143969932071",
+      appId: "1:143969932071:web:850baabab3f9c0f2de0f02",
+      measurementId: "G-KP89LYZJMT"
+    };
+
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+    import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
+    import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const auth = getAuth(app);
+
+    const loginUI = document.getElementById("loginUI");
+    const email = document.getElementById("email");
+    const password = document.getElementById("password");
+    const loginBtn = document.getElementById("loginBtn");
+    const loginMsg = document.getElementById("loginMsg");
+
+    const settingsDiv = document.getElementById("settings");
+    const hotspotPassword = document.getElementById("hotspotPassword");
+    const maxAttempts = document.getElementById("maxAttempts");
+    const saveBtn = document.getElementById("saveBtn");
+    const logoutBtn = document.getElementById("logoutBtn");
+    const msg = document.getElementById("msg");
+
+    // Admin Login
+    loginBtn.onclick = async () => {
+      loginMsg.textContent = "Login läuft… 🔄";
+      try {
+        await signInWithEmailAndPassword(auth, email.value, password.value);
+      } catch(e) {
+        loginMsg.textContent = "Fehler: " + e.message;
+      }
+    };
+
+    logoutBtn.onclick = async () => {
+      await signOut(auth);
+    };
+
+    onAuthStateChanged(auth, async (user) => {
+      if(user){
+        loginUI.style.display = "none";
+        settingsDiv.style.display = "block";
+        msg.textContent = "";
+        loadSettings();
+      } else {
+        loginUI.style.display = "block";
+        settingsDiv.style.display = "none";
+        loginMsg.textContent = "";
+      }
+    });
+
+    // Einstellungen auslesen
+    async function loadSettings() {
+      const snapshot = await get(ref(db, "settings"));
+      if(snapshot.exists()){
+        const data = snapshot.val();
+        hotspotPassword.value = data.password || "";
+        maxAttempts.value = data.maxAttempts || 6;
+      }
+    }
+
+    // Einstellungen speichern
+    saveBtn.onclick = async () => {
+      await set(ref(db, "settings"), {
+        password: hotspotPassword.value,
+        maxAttempts: Number(maxAttempts.value)
+      });
+      msg.textContent = "✅ Gespeichert!";
+    };
+  </script>
+</body>
+</html>

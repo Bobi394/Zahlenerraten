@@ -110,6 +110,8 @@ guessBtn.onclick = () => {
   }
 
   attemptsLeft--;
+  const isRandom = settings.randomNumber;
+
   if (guess === currentNumber) {
     result.textContent = "🎉 Richtig! Du wirst weitergeleitet...";
     setTimeout(() => {
@@ -127,11 +129,24 @@ guessBtn.onclick = () => {
     return;
   }
 
-  hint.textContent = guess > currentNumber ? "📉 Zu hoch!" : "📈 Zu niedrig!";
+  // 👇 Unterschiedliche Hinweise je nach Zufallsmodus
+  if (isRandom) {
+    hint.textContent = "❌ Falsch! Versuch es nochmal!";
+  } else {
+    hint.textContent = guess > currentNumber ? "📉 Zu hoch!" : "📈 Zu niedrig!";
+  }
+
   info.textContent = `Noch ${attemptsLeft} Versuche.`;
+
+  // 🔁 Wenn Zufall an ist, neue Zahl generieren nach jedem Versuch
+  if (isRandom) {
+    const min = settings.minNumber || 1;
+    const max = settings.maxNumber || 50;
+    currentNumber = Math.floor(Math.random() * (max - min + 1)) + min;
+  }
 };
 
-// 🔹 🔄 Admin-Reload-Listener – jetzt 100% stabil
+// 🔹 🔄 Admin-Reload-Listener – stabil (kein Loop!)
 const reloadRef = ref(db, "reloadFlag/time");
 let firstLoad = true;
 
@@ -140,14 +155,12 @@ onValue(reloadRef, (snap) => {
   const newTime = snap.val();
   const lastReload = localStorage.getItem("lastReloadTime");
 
-  // Beim ersten Start: nur merken, nicht reloaden
   if (firstLoad) {
     firstLoad = false;
     localStorage.setItem("lastReloadTime", newTime);
     return;
   }
 
-  // Nur reloaden, wenn der neue Timestamp anders ist
   if (newTime && newTime !== lastReload) {
     console.log("🔄 Admin hat Reload ausgelöst!");
     localStorage.setItem("lastReloadTime", newTime);

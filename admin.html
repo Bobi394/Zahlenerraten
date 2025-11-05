@@ -18,32 +18,39 @@ button:hover { background-color: #2563eb; }
 </style>
 </head>
 <body>
+
 <h1>🦎 Admin-Bereich</h1>
 
 <section>
-<h2>⚙️ Einstellungen</h2>
-<label>Hotspot-Passwort:</label>
-<input id="password" placeholder="Passwort eingeben">
-<label>Minimale Zahl:</label>
-<input type="number" id="minNumber" value="1">
-<label>Maximale Zahl:</label>
-<input type="number" id="maxNumber" value="50">
-<label>Maximale Versuche:</label>
-<input type="number" id="maxAttempts" value="6">
-<label>Zufallszahl aktivieren?</label>
-<select id="randomNumber">
-<option value="true">Ja</option>
-<option value="false">Nein</option>
-</select>
-<label>Feste Zahl (wenn Zufall aus):</label>
-<input type="number" id="fixedNumber" value="10">
-<button id="saveBtn">💾 Einstellungen speichern</button>
-<button id="reloadBtn">🔄 Alle Spielerseiten neu laden</button>
+  <h2>⚙️ Einstellungen</h2>
+  <label>Hotspot-Passwort:</label>
+  <input id="password" placeholder="Passwort eingeben">
+
+  <label>Minimale Zahl:</label>
+  <input type="number" id="minNumber" value="1">
+
+  <label>Maximale Zahl:</label>
+  <input type="number" id="maxNumber" value="50">
+
+  <label>Maximale Versuche:</label>
+  <input type="number" id="maxAttempts" value="6">
+
+  <label>Zufallszahl aktivieren?</label>
+  <select id="randomNumber">
+    <option value="true">Ja</option>
+    <option value="false">Nein</option>
+  </select>
+
+  <label>Feste Zahl (wenn Zufall aus):</label>
+  <input type="number" id="fixedNumber" value="10">
+
+  <button id="saveBtn">💾 Einstellungen speichern</button>
+  <button id="reloadBtn">🔄 Alle Spieler neu laden</button>
 </section>
 
 <section>
-<h2>📨 Anfragen verwalten</h2>
-<div id="requests">Lade Anfragen...</div>
+  <h2>📨 Anfragen verwalten</h2>
+  <div id="requests">Lade Anfragen...</div>
 </section>
 
 <script type="module">
@@ -77,7 +84,7 @@ const requestsDiv = document.getElementById("requests");
 // 🔹 Einstellungen laden
 async function loadSettings() {
   const snapshot = await get(ref(db, "settings"));
-  if (snapshot.exists()) {
+  if(snapshot.exists()){
     const s = snapshot.val();
     passwordInput.value = s.password || "";
     minInput.value = s.minNumber || 1;
@@ -96,29 +103,27 @@ saveBtn.onclick = async () => {
     minNumber: Number(minInput.value),
     maxNumber: Number(maxInput.value),
     maxAttempts: Number(attemptsInput.value),
-    randomNumber: randomSelect.value === "true",
+    randomNumber: randomSelect.value==="true",
     fixedNumber: Number(fixedInput.value)
   });
   alert("✅ Einstellungen gespeichert!");
 };
 
-// 🔹 Alle Spieler reloaden
+// 🔹 Reload-Button
 reloadBtn.onclick = async () => {
-  await set(ref(db, "reloadFlag"), { time: Date.now() });
+  const reloadRef = ref(db, "reloadFlag");
+  await set(reloadRef, { time: Date.now() });
   alert("🔄 Spieler-Seiten werden neu geladen!");
 };
 
 // 🔹 Anfragen anzeigen
 onValue(ref(db, "requests"), (snapshot) => {
   requestsDiv.innerHTML = "";
-  if (!snapshot.exists()) {
-    requestsDiv.textContent = "Keine Anfragen vorhanden.";
-    return;
-  }
+  if(!snapshot.exists()){ requestsDiv.textContent="Keine Anfragen vorhanden."; return; }
 
   const data = snapshot.val();
-  for (const [key, req] of Object.entries(data)) {
-    if (req.status !== "offen") continue;
+  for(const [key, req] of Object.entries(data)){
+    if(req.status !== "offen") continue;
     const div = document.createElement("div");
     div.classList.add("request");
     div.innerHTML = `
@@ -129,14 +134,14 @@ onValue(ref(db, "requests"), (snapshot) => {
     requestsDiv.appendChild(div);
   }
 
-  document.querySelectorAll("button[data-key]").forEach((btn) => {
-    btn.onclick = async () => {
+  document.querySelectorAll("button[data-key]").forEach(btn=>{
+    btn.onclick=async ()=>{
       const key = btn.getAttribute("data-key");
       const action = btn.getAttribute("data-action");
-      const newStatus = action === "accept" ? "akzeptiert" : "abgelehnt";
+      const newStatus = action==="accept"?"akzeptiert":"abgelehnt";
       await update(ref(db, `requests/${key}`), { status: newStatus });
-      setTimeout(() => remove(ref(db, `requests/${key}`)), 500);
-    };
+      setTimeout(()=>remove(ref(db, `requests/${key}`)), 500);
+    }
   });
 });
 </script>

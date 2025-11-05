@@ -5,98 +5,39 @@
 <title>Admin-Bereich 🦎</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-body {
-  font-family: Arial;
-  background: #0f172a;
-  color: #fff;
-  text-align: center;
-  padding: 30px;
-}
-
-h1 {
-  color: #38bdf8;
-}
-
-section {
-  background: #1e293b;
-  padding: 20px;
-  border-radius: 10px;
-  margin: 20px auto;
-  width: 90%;
-  max-width: 500px;
-  text-align: left;
-}
-
-label {
-  display: block;
-  margin-top: 10px;
-  font-weight: bold;
-}
-
-input, select, button {
-  margin-top: 5px;
-  width: 100%;
-  padding: 8px;
-  border-radius: 8px;
-  border: none;
-  font-size: 15px;
-}
-
-button {
-  background-color: #3b82f6;
-  color: white;
-  cursor: pointer;
-  margin-top: 10px;
-}
-
-button:hover {
-  background-color: #2563eb;
-}
-
-.request {
-  border-bottom: 1px solid #334155;
-  padding: 10px 0;
-}
-
-.request span {
-  display: inline-block;
-  width: 60%;
-}
-
-.request button {
-  width: auto;
-  padding: 6px 10px;
-  font-size: 13px;
-  margin-left: 5px;
-}
+body { font-family: Arial; background: #0f172a; color: #fff; text-align: center; padding: 30px; }
+h1 { color: #38bdf8; }
+section { background:#1e293b; padding:20px; border-radius:10px; margin:20px auto; width:90%; max-width:500px; text-align:left; }
+label { display:block; margin-top:10px; font-weight:bold; }
+input, select, button { margin-top:5px; width:100%; padding:8px; border-radius:8px; border:none; font-size:15px; }
+button { background-color:#3b82f6; color:white; cursor:pointer; margin-top:10px; }
+button:hover { background-color:#2563eb; }
+.request { border-bottom:1px solid #334155; padding:10px 0; }
+.request span { display:inline-block; width:60%; }
+.request button { width:auto; padding:6px 10px; font-size:13px; margin-left:5px; }
 </style>
 </head>
 <body>
+
 <h1>🦎 Admin-Bereich</h1>
 
 <section>
   <h2>⚙️ Einstellungen</h2>
   <label>Hotspot-Passwort:</label>
   <input id="password" placeholder="Passwort eingeben">
-
   <label>Minimale Zahl:</label>
   <input type="number" id="minNumber" value="1">
-
   <label>Maximale Zahl:</label>
   <input type="number" id="maxNumber" value="50">
-
   <label>Maximale Versuche:</label>
   <input type="number" id="maxAttempts" value="6">
-
   <label>Zufallszahl aktivieren?</label>
   <select id="randomNumber">
     <option value="true">Ja</option>
     <option value="false">Nein</option>
   </select>
-
   <label>Feste Zahl (wenn Zufall aus):</label>
   <input type="number" id="fixedNumber" value="10">
-
   <button id="saveBtn">💾 Einstellungen speichern</button>
   <button id="reloadBtn">🔄 Alle Spielerseiten neu laden</button>
 </section>
@@ -107,6 +48,11 @@ button:hover {
 </section>
 
 <script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+import { getDatabase, ref, set, get, update, onValue, remove } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
+
+document.addEventListener("DOMContentLoaded", () => {
+
 const firebaseConfig = {
   apiKey: "AIzaSyBSDffrKz3_AE_iuwOLuZNB0yWLStMysSI",
   authDomain: "zahlenerraten.firebaseapp.com",
@@ -114,16 +60,13 @@ const firebaseConfig = {
   projectId: "zahlenerraten",
   storageBucket: "zahlenerraten.firebasestorage.app",
   messagingSenderId: "143969932071",
-  appId: "1:143969932071:web:850baabab3f9c0f2de0f02",
-  measurementId: "G-KP89LYZJMT"
+  appId: "1:143969932071:web:850baabab3f9c0f2de0f02"
 };
-
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
-import { getDatabase, ref, set, get, update, onValue, remove } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
+// Elemente
 const passwordInput = document.getElementById("password");
 const minInput = document.getElementById("minNumber");
 const maxInput = document.getElementById("maxNumber");
@@ -134,73 +77,68 @@ const saveBtn = document.getElementById("saveBtn");
 const reloadBtn = document.getElementById("reloadBtn");
 const requestsDiv = document.getElementById("requests");
 
-// 🔹 Einstellungen laden
-async function loadSettings() {
-  const snapshot = await get(ref(db, "settings"));
-  if (snapshot.exists()) {
+// Einstellungen laden
+async function loadSettings(){
+  const snapshot = await get(ref(db,"settings"));
+  if(snapshot.exists()){
     const s = snapshot.val();
-    passwordInput.value = s.password || "";
-    minInput.value = s.minNumber || 1;
-    maxInput.value = s.maxNumber || 50;
-    attemptsInput.value = s.maxAttempts || 6;
-    randomSelect.value = s.randomNumber ? "true" : "false";
-    fixedInput.value = s.fixedNumber || 10;
+    passwordInput.value = s.password||"";
+    minInput.value = s.minNumber||1;
+    maxInput.value = s.maxNumber||50;
+    attemptsInput.value = s.maxAttempts||6;
+    randomSelect.value = s.randomNumber?"true":"false";
+    fixedInput.value = s.fixedNumber||10;
   }
 }
-await loadSettings();
+loadSettings();
 
-// 🔹 Einstellungen speichern
-saveBtn.onclick = async () => {
-  await set(ref(db, "settings"), {
-    password: passwordInput.value,
-    minNumber: Number(minInput.value),
-    maxNumber: Number(maxInput.value),
-    maxAttempts: Number(attemptsInput.value),
-    randomNumber: randomSelect.value === "true",
-    fixedNumber: Number(fixedInput.value)
+// Einstellungen speichern
+saveBtn.onclick = async ()=>{
+  await set(ref(db,"settings"),{
+    password:passwordInput.value,
+    minNumber:Number(minInput.value),
+    maxNumber:Number(maxInput.value),
+    maxAttempts:Number(attemptsInput.value),
+    randomNumber:randomSelect.value==="true",
+    fixedNumber:Number(fixedInput.value)
   });
   alert("✅ Einstellungen gespeichert!");
 };
 
-// 🔹 Reload-Button — löst nur EIN Signal aus, das die Spieler-Seite einmal neu lädt
-reloadBtn.onclick = async () => {
-  const reloadRef = ref(db, "reloadFlag");
-  await set(reloadRef, { time: Date.now() });
+// Reload-Button
+reloadBtn.onclick = async ()=>{
+  await set(ref(db,"reloadFlag"), {time:Date.now()});
   alert("🔄 Spieler-Seiten werden neu geladen!");
 };
 
-// 🔹 Anfragen anzeigen
-onValue(ref(db, "requests"), (snapshot) => {
-  requestsDiv.innerHTML = "";
-  if (!snapshot.exists()) {
-    requestsDiv.textContent = "Keine Anfragen vorhanden.";
-    return;
-  }
-
+// Anfragen anzeigen
+onValue(ref(db,"requests"), snapshot=>{
+  requestsDiv.innerHTML="";
+  if(!snapshot.exists()){ requestsDiv.textContent="Keine Anfragen vorhanden."; return; }
   const data = snapshot.val();
-  for (const [key, req] of Object.entries(data)) {
-    if (req.status !== "offen") continue; // Nur offene Anfragen
-
-    const div = document.createElement("div");
+  for(const [key,req] of Object.entries(data)){
+    if(req.status!=="offen") continue;
+    const div=document.createElement("div");
     div.classList.add("request");
-    div.innerHTML = `
-      <span>${req.name || "Unbekannt"}</span>
+    div.innerHTML=`
+      <span>${req.name||"Unbekannt"}</span>
       <button data-key="${key}" data-action="accept">✅ Akzeptieren</button>
       <button data-key="${key}" data-action="deny">❌ Ablehnen</button>
     `;
     requestsDiv.appendChild(div);
   }
-
   // Klick-Events
-  document.querySelectorAll("button[data-key]").forEach((btn) => {
-    btn.onclick = async () => {
-      const key = btn.getAttribute("data-key");
-      const action = btn.getAttribute("data-action");
-      const newStatus = action === "accept" ? "akzeptiert" : "abgelehnt";
-      await update(ref(db, `requests/${key}`), { status: newStatus });
-      setTimeout(() => remove(ref(db, `requests/${key}`)), 500);
+  document.querySelectorAll("button[data-key]").forEach(btn=>{
+    btn.onclick=async ()=>{
+      const key=btn.getAttribute("data-key");
+      const action=btn.getAttribute("data-action");
+      const newStatus = action==="accept"?"akzeptiert":"abgelehnt";
+      await update(ref(db,`requests/${key}`),{status:newStatus});
+      setTimeout(()=>remove(ref(db,`requests/${key}`)),500);
     };
   });
+});
+
 });
 </script>
 </body>

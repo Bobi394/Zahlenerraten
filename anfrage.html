@@ -5,42 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Anfrage senden 📨</title>
 <style>
-body {
-  background-color: #0f172a;
-  color: white;
-  font-family: Arial;
-  text-align: center;
-  padding: 30px;
-}
-h1 { color: #38bdf8; }
-input, button {
-  padding: 10px;
-  margin: 8px;
-  border-radius: 8px;
-  border: none;
-  font-size: 16px;
-}
-input {
-  width: 200px;
-  text-align: center;
-}
-button {
-  background-color: #3b82f6;
-  color: white;
-  cursor: pointer;
-}
-button:hover { background-color: #2563eb; }
-#langBtn {
-  position: absolute;
-  top: 10px;
-  right: 15px;
-  background: #1e293b;
-  color: white;
-  border-radius: 8px;
-}
+body { background-color:#0f172a; color:white; font-family:Arial; text-align:center; padding:30px; }
+h1 { color:#38bdf8; }
+input, button { padding:10px; margin:8px; border-radius:8px; border:none; font-size:16px; }
+input { width:200px; text-align:center; }
+button { background-color:#3b82f6; color:white; cursor:pointer; }
+button:hover { background-color:#2563eb; }
+#langBtn { position:absolute; top:10px; right:15px; background:#1e293b; color:white; border-radius:8px; }
 </style>
 </head>
 <body>
+
 <button id="langBtn">🇩🇪 Deutsch</button>
 <h1 id="title">📨 Anfrage senden</h1>
 <p id="desc">Gib deinen Namen ein, um eine Anfrage zu stellen:</p>
@@ -52,22 +27,22 @@ button:hover { background-color: #2563eb; }
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
 import { getDatabase, ref, push, set, onValue, get, query, orderByChild, equalTo } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
 
-// 🔹 Firebase Einstellungen
+document.addEventListener("DOMContentLoaded", () => {
+
 const firebaseConfig = {
   apiKey: "AIzaSyBSDffrKz3_AE_iuwOLuZNB0yWLStMysSI",
   authDomain: "zahlenerraten.firebaseapp.com",
-  databaseURL: "https://zahlenerraten-default-rtdb.europe-west1.firebasedatabase.app/",
+  databaseURL: "https://zahlenerraten-default-rtdb.europe-west1.firebasedatabase.app",
   projectId: "zahlenerraten",
   storageBucket: "zahlenerraten.firebasestorage.app",
   messagingSenderId: "143969932071",
-  appId: "1:143969932071:web:850baabab3f9c0f2de0f02",
-  measurementId: "G-KP89LYZJMT"
+  appId: "1:143969932071:web:850baabab3f9c0f2de0f02"
 };
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// 🔹 HTML-Elemente
+// Elemente
 const title = document.getElementById("title");
 const desc = document.getElementById("desc");
 const nameInput = document.getElementById("nameInput");
@@ -75,102 +50,100 @@ const sendBtn = document.getElementById("sendBtn");
 const status = document.getElementById("status");
 const langBtn = document.getElementById("langBtn");
 
-// 🔹 Sprachen
-let lang = "de";
+let lang="de";
+let currentRequestId=null;
+
+// Texte
 const texts = {
   de: {
-    title: "📨 Anfrage senden",
-    desc: "Gib deinen Namen ein, um eine Anfrage zu stellen:",
-    placeholder: "Dein Name",
-    send: "Anfrage senden",
-    sending: "⏳ Anfrage wird gesendet...",
-    sent: "✅ Anfrage wurde gesendet! Warte auf Antwort...",
-    accepted: (url) => `✅ Anfrage akzeptiert!<br><a href="${url}" target="_blank" style="color:#38bdf8;">Hier klicken 🔑</a>`,
-    declined: "❌ Deine Anfrage wurde abgelehnt!",
-    exists: "⚠️ Du hast bereits eine offene Anfrage!",
-    invalid: "⚠️ Bitte gib deinen Namen ein!",
-    error: "❌ Anfrage konnte nicht gespeichert werden!"
+    title:"📨 Anfrage senden",
+    desc:"Gib deinen Namen ein, um eine Anfrage zu stellen:",
+    placeholder:"Dein Name",
+    send:"Anfrage senden",
+    sending:"⏳ Anfrage wird gesendet...",
+    sent:"✅ Anfrage wurde gesendet! Warte auf Antwort...",
+    accepted:(url)=>`✅ Deine Anfrage wurde akzeptiert!<br><a href="${url}" target="_blank" style="color:#38bdf8;">Hier klicken, um das Passwort zu sehen 🔑</a>`,
+    declined:"❌ Deine Anfrage wurde abgelehnt!",
+    exists:"⚠️ Du hast bereits eine offene Anfrage!",
+    invalid:"⚠️ Bitte gib deinen Namen ein!"
   },
   en: {
-    title: "📨 Send Request",
-    desc: "Enter your name to send a request:",
-    placeholder: "Your name",
-    send: "Send Request",
-    sending: "⏳ Sending request...",
-    sent: "✅ Request sent! Waiting for response...",
-    accepted: (url) => `✅ Request accepted!<br><a href="${url}" target="_blank" style="color:#38bdf8;">Click here 🔑</a>`,
-    declined: "❌ Request declined!",
-    exists: "⚠️ You already have a pending request!",
-    invalid: "⚠️ Please enter your name!",
-    error: "❌ Could not save request!"
+    title:"📨 Send Request",
+    desc:"Enter your name to send a request:",
+    placeholder:"Your name",
+    send:"Send Request",
+    sending:"⏳ Sending request...",
+    sent:"✅ Request sent! Please wait for a response...",
+    accepted:(url)=>`✅ Your request has been accepted!<br><a href="${url}" target="_blank" style="color:#38bdf8;">Click here to view the password 🔑</a>`,
+    declined:"❌ Your request was declined!",
+    exists:"⚠️ You already have a pending request!",
+    invalid:"⚠️ Please enter your name!"
   }
 };
 
-// 🔹 Sprache wechseln
-langBtn.onclick = () => {
-  lang = lang === "de" ? "en" : "de";
-  langBtn.textContent = lang === "de" ? "🇩🇪 Deutsch" : "🇬🇧 English";
-  title.textContent = texts[lang].title;
-  desc.textContent = texts[lang].desc;
-  nameInput.placeholder = texts[lang].placeholder;
-  sendBtn.textContent = texts[lang].send;
+// Sprachumschalter
+langBtn.onclick = ()=>{
+  lang = lang==="de"?"en":"de";
+  langBtn.textContent = lang==="de"?"🇩🇪 Deutsch":"🇬🇧 English";
+  applyLang();
 };
-langBtn.click(); // Sprache initialisieren
 
-// 🔹 Prüfen, ob schon offene Anfrage existiert
-async function checkExisting(name) {
-  const q = query(ref(db, "requests"), orderByChild("name"), equalTo(name));
-  const snap = await get(q);
-  if (!snap.exists()) return null;
-  let found = null;
-  snap.forEach(child => {
-    if (child.val().status === "offen") found = { id: child.key, data: child.val() };
-  });
-  return found;
+function applyLang(){
+  title.textContent=texts[lang].title;
+  desc.textContent=texts[lang].desc;
+  nameInput.placeholder=texts[lang].placeholder;
+  sendBtn.textContent=texts[lang].send;
 }
 
-// 🔹 Anfrage absenden
-sendBtn.onclick = async () => {
-  const name = nameInput.value.trim();
-  if (!name) return status.textContent = texts[lang].invalid;
+// Prüft offene Anfrage
+async function checkExisting(name){
+  const q = query(ref(db,"requests"), orderByChild("name"), equalTo(name));
+  const snap = await get(q);
+  if(!snap.exists()) return null;
+  let foundId=null;
+  snap.forEach(child=>{
+    if(child.val().status==="offen") foundId=child.key;
+  });
+  return foundId?foundId:null;
+}
 
-  sendBtn.disabled = true;
-  status.textContent = texts[lang].sending;
+// Anfrage senden
+sendBtn.onclick = async ()=>{
+  const name=nameInput.value.trim();
+  if(!name){ status.textContent=texts[lang].invalid; return; }
+  status.textContent=texts[lang].sending;
+  sendBtn.disabled=true;
 
-  try {
-    const existing = await checkExisting(name);
-    if (existing) {
-      status.textContent = texts[lang].exists;
-      sendBtn.disabled = false;
-      return;
-    }
+  const existing = await checkExisting(name);
+  if(existing){ status.textContent=texts[lang].exists; sendBtn.disabled=false; return; }
 
-    const newRef = push(ref(db, "requests"));
-    await set(newRef, { name, status: "offen", timestamp: Date.now() });
+  try{
+    const newReq = push(ref(db,"requests"));
+    await set(newReq,{name,status:"offen"});
+    currentRequestId=newReq.key;
+    status.textContent=texts[lang].sent;
 
-    status.textContent = texts[lang].sent;
-    nameInput.style.display = "none";
-    sendBtn.style.display = "none";
-
-    // Live auf Statusänderung hören
-    onValue(ref(db, "requests/" + newRef.key), async (snap) => {
-      if (!snap.exists()) return;
-      const data = snap.val();
-      if (data.status === "akzeptiert") {
-        const settingsSnap = await get(ref(db, "settings/linkURL"));
-        const url = settingsSnap.exists() ? settingsSnap.val() : "#";
-        status.innerHTML = texts[lang].accepted(url);
-      } else if (data.status === "abgelehnt") {
-        status.textContent = texts[lang].declined;
+    onValue(ref(db,"requests/"+currentRequestId),(snap)=>{
+      if(!snap.exists()) return;
+      const data=snap.val();
+      if(data.status==="akzeptiert"){
+        const url = "#"; // Hier könnte Link aus Einstellungen kommen
+        status.innerHTML=texts[lang].accepted(url);
+        sendBtn.style.display="none"; nameInput.style.display="none";
+      } else if(data.status==="abgelehnt"){
+        status.textContent=texts[lang].declined;
+        sendBtn.style.display="none"; nameInput.style.display="none";
       }
     });
-
-  } catch (err) {
-    console.error("Fehler beim Speichern:", err);
-    status.textContent = texts[lang].error;
-    sendBtn.disabled = false;
+  } catch(err){
+    status.textContent="❌ Anfrage konnte nicht gespeichert werden!";
+    console.error(err);
   }
 };
+
+applyLang();
+
+});
 </script>
 </body>
 </html>

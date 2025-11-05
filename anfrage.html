@@ -20,10 +20,7 @@ input, button {
   border: none;
   font-size: 16px;
 }
-input {
-  width: 200px;
-  text-align: center;
-}
+input { width: 200px; text-align: center; }
 button {
   background-color: #3b82f6;
   color: white;
@@ -41,6 +38,7 @@ button:hover { background-color: #2563eb; }
 </style>
 </head>
 <body>
+
 <button id="langBtn">🇩🇪 Deutsch</button>
 <h1 id="title">📨 Anfrage senden</h1>
 <p id="desc">Gib deinen Namen ein, um eine Anfrage zu stellen:</p>
@@ -49,6 +47,10 @@ button:hover { background-color: #2563eb; }
 <p id="status"></p>
 
 <script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+import { getDatabase, ref, push, set, get, query, orderByChild, equalTo, onValue } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
+
+// 🔹 Firebase konfigurieren
 const firebaseConfig = {
   apiKey: "AIzaSyBSDffrKz3_AE_iuwOLuZNB0yWLStMysSI",
   authDomain: "zahlenerraten.firebaseapp.com",
@@ -60,12 +62,10 @@ const firebaseConfig = {
   measurementId: "G-KP89LYZJMT"
 };
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
-import { getDatabase, ref, push, set, onValue, get, query, orderByChild, equalTo } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
-
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
+// 🔹 Elemente
 const title = document.getElementById("title");
 const desc = document.getElementById("desc");
 const nameInput = document.getElementById("nameInput");
@@ -76,7 +76,7 @@ const langBtn = document.getElementById("langBtn");
 let lang = "de";
 let currentRequestId = null;
 
-// 🗣 Texte
+// 🔹 Texte
 const texts = {
   de: {
     title: "📨 Anfrage senden",
@@ -88,7 +88,8 @@ const texts = {
     accepted: (url) => `✅ Deine Anfrage wurde akzeptiert!<br><a href="${url}" target="_blank" style="color:#38bdf8;">Hier klicken, um das Passwort zu sehen 🔑</a>`,
     declined: "❌ Deine Anfrage wurde abgelehnt!",
     exists: "⚠️ Du hast bereits eine offene Anfrage!",
-    invalid: "⚠️ Bitte gib deinen Namen ein!"
+    invalid: "⚠️ Bitte gib deinen Namen ein!",
+    error: "❌ Anfrage konnte nicht gespeichert werden!"
   },
   en: {
     title: "📨 Send Request",
@@ -100,11 +101,12 @@ const texts = {
     accepted: (url) => `✅ Your request has been accepted!<br><a href="${url}" target="_blank" style="color:#38bdf8;">Click here to view the password 🔑</a>`,
     declined: "❌ Your request was declined!",
     exists: "⚠️ You already have a pending request!",
-    invalid: "⚠️ Please enter your name!"
+    invalid: "⚠️ Please enter your name!",
+    error: "❌ Could not save request!"
   }
 };
 
-// 🟦 Sprachumschalter
+// 🔹 Sprachumschalter
 langBtn.onclick = () => {
   lang = lang === "de" ? "en" : "de";
   langBtn.textContent = lang === "de" ? "🇩🇪 Deutsch" : "🇬🇧 English";
@@ -118,22 +120,16 @@ function applyLang() {
   sendBtn.textContent = texts[lang].send;
 }
 
-// 🔹 Prüft, ob es schon eine offene Anfrage gibt
+// 🔹 Prüft ob schon offene Anfrage existiert
 async function checkExisting(name) {
   const q = query(ref(db, "requests"), orderByChild("name"), equalTo(name));
   const snap = await get(q);
   if (!snap.exists()) return null;
-
-  let foundId = null;
-  let foundData = null;
+  let found = null;
   snap.forEach(child => {
-    const val = child.val();
-    if (val.status === "offen") {
-      foundId = child.key;
-      foundData = val;
-    }
+    if (child.val().status === "offen") found = { id: child.key, data: child.val() };
   });
-  return foundId ? { id: foundId, data: foundData } : null;
+  return found;
 }
 
 // 🔹 Anfrage senden
@@ -147,39 +143,47 @@ sendBtn.onclick = async () => {
   status.textContent = texts[lang].sending;
   sendBtn.disabled = true;
 
-  // Prüfen ob schon Anfrage existiert
-  const existing = await checkExisting(name);
-  if (existing) {
-    status.textContent = texts[lang].exists;
-    sendBtn.disabled = false;
-    return;
-  }
-
-  const newReq = push(ref(db, "requests"));
-  await set(newReq, { name, status: "offen" });
-  currentRequestId = newReq.key;
-  status.textContent = texts[lang].sent;
-
-  // Live beobachten
-  onValue(ref(db, "requests/" + currentRequestId), async (snap) => {
-    if (!snap.exists()) return;
-    const data = snap.val();
-    if (data.status === "akzeptiert") {
-      const settingsSnap = await get(ref(db, "settings/linkURL"));
-      const url = settingsSnap.exists() ? settingsSnap.val() : "#";
-      status.innerHTML = texts[lang].accepted(url);
-      sendBtn.style.display = "none";
-      nameInput.style.display = "none";
-    } else if (data.status === "abgelehnt") {
-      status.textContent = texts[lang].declined;
-      sendBtn.style.display = "none";
-      nameInput.style.display = "none";
+  try {
+    const existing = await checkExisting(name);
+    if (existing) {
+      status.textContent = texts[lang].exists;
+      sendBtn.disabled = false;
+      return;
     }
-  });
+
+    const newReq = push(ref(db, "requests"));
+    await set(newReq, { name, status: "offen" });
+    currentRequestId = newReq.key;
+    status.textContent = texts[lang].sent;
+    console.log("✅ Anfrage gespeichert:", currentRequestId);
+
+    // Live-Update überwachen
+    onValue(ref(db, "requests/" + currentRequestId), async (snap) => {
+      if (!snap.exists()) return;
+      const data = snap.val();
+      if (data.status === "akzeptiert") {
+        const urlSnap = await get(ref(db, "settings/linkURL"));
+        const url = urlSnap.exists() ? urlSnap.val() : "#";
+        status.innerHTML = texts[lang].accepted(url);
+        sendBtn.style.display = "none";
+        nameInput.style.display = "none";
+      } else if (data.status === "abgelehnt") {
+        status.textContent = texts[lang].declined;
+        sendBtn.style.display = "none";
+        nameInput.style.display = "none";
+      }
+    });
+
+  } catch (err) {
+    console.error("❌ Fehler beim Speichern:", err);
+    status.textContent = texts[lang].error;
+    sendBtn.disabled = false;
+  }
 };
 
-// Sprache beim Laden einstellen
+// Sprache direkt anwenden
 applyLang();
+
 </script>
 </body>
 </html>

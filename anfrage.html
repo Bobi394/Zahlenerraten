@@ -2,61 +2,51 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<title>Anfrage senden 🦎</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Anfrage senden 📨</title>
 <style>
 body {
+  background-color: #0f172a;
+  color: white;
   font-family: Arial;
-  background: #101820;
-  color: #fff;
   text-align: center;
-  padding: 40px;
-}
-
-.box {
-  background: #1e293b;
-  display: inline-block;
   padding: 30px;
-  border-radius: 12px;
-  width: 90%;
-  max-width: 400px;
 }
-
+h1 { color: #38bdf8; }
 input, button {
-  padding: 12px;
-  margin: 8px 0;
+  padding: 10px;
+  margin: 8px;
   border-radius: 8px;
   border: none;
-  width: 90%;
-  max-width: 300px;
   font-size: 16px;
 }
-
+input {
+  width: 200px;
+  text-align: center;
+}
 button {
   background-color: #3b82f6;
-  color: #fff;
+  color: white;
   cursor: pointer;
 }
-
-button:hover {
-  background-color: #2563eb;
-}
-
-#status, #password {
-  margin-top: 15px;
-  font-weight: bold;
+button:hover { background-color: #2563eb; }
+#langBtn {
+  position: absolute;
+  top: 10px;
+  right: 15px;
+  background: #1e293b;
+  color: white;
+  border-radius: 8px;
 }
 </style>
 </head>
 <body>
-<div class="box">
-  <h1>📨 Anfrage senden</h1>
-  <p>Gib deinen Namen ein, um das Passwort anzufragen:</p>
-  <input type="text" id="nameInput" placeholder="Dein Name">
-  <button id="sendBtn">Anfrage senden</button>
-  <p id="status"></p>
-  <p id="password"></p>
-</div>
+<button id="langBtn">🇩🇪 Deutsch</button>
+<h1 id="title">📨 Anfrage senden</h1>
+<p id="desc">Gib deinen Namen ein, um eine Anfrage zu stellen:</p>
+<input type="text" id="nameInput" placeholder="Dein Name">
+<button id="sendBtn">Anfrage senden</button>
+<p id="status"></p>
 
 <script type="module">
 const firebaseConfig = {
@@ -71,75 +61,125 @@ const firebaseConfig = {
 };
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
-import { getDatabase, ref, push, set, onValue, get, child, query, orderByChild, equalTo } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
+import { getDatabase, ref, push, set, onValue, get, query, orderByChild, equalTo } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
+const title = document.getElementById("title");
+const desc = document.getElementById("desc");
 const nameInput = document.getElementById("nameInput");
 const sendBtn = document.getElementById("sendBtn");
-const statusP = document.getElementById("status");
-const passwordP = document.getElementById("password");
+const status = document.getElementById("status");
+const langBtn = document.getElementById("langBtn");
 
-let requestKey = null;
-let password = "";
+let lang = "de";
+let currentRequestId = null;
 
-// 🔹 Passwort aus settings laden
-async function loadPassword() {
-  const snapshot = await get(child(ref(db), "settings/password"));
-  if (snapshot.exists()) password = snapshot.val();
+// 🗣 Texte
+const texts = {
+  de: {
+    title: "📨 Anfrage senden",
+    desc: "Gib deinen Namen ein, um eine Anfrage zu stellen:",
+    placeholder: "Dein Name",
+    send: "Anfrage senden",
+    sending: "⏳ Anfrage wird gesendet...",
+    sent: "✅ Anfrage wurde gesendet! Warte auf Antwort...",
+    accepted: (url) => `✅ Deine Anfrage wurde akzeptiert!<br><a href="${url}" target="_blank" style="color:#38bdf8;">Hier klicken, um das Passwort zu sehen 🔑</a>`,
+    declined: "❌ Deine Anfrage wurde abgelehnt!",
+    exists: "⚠️ Du hast bereits eine offene Anfrage!",
+    invalid: "⚠️ Bitte gib deinen Namen ein!"
+  },
+  en: {
+    title: "📨 Send Request",
+    desc: "Enter your name to send a request:",
+    placeholder: "Your name",
+    send: "Send Request",
+    sending: "⏳ Sending request...",
+    sent: "✅ Request sent! Please wait for a response...",
+    accepted: (url) => `✅ Your request has been accepted!<br><a href="${url}" target="_blank" style="color:#38bdf8;">Click here to view the password 🔑</a>`,
+    declined: "❌ Your request was declined!",
+    exists: "⚠️ You already have a pending request!",
+    invalid: "⚠️ Please enter your name!"
+  }
+};
+
+// 🟦 Sprachumschalter
+langBtn.onclick = () => {
+  lang = lang === "de" ? "en" : "de";
+  langBtn.textContent = lang === "de" ? "🇩🇪 Deutsch" : "🇬🇧 English";
+  applyLang();
+};
+
+function applyLang() {
+  title.textContent = texts[lang].title;
+  desc.textContent = texts[lang].desc;
+  nameInput.placeholder = texts[lang].placeholder;
+  sendBtn.textContent = texts[lang].send;
 }
-await loadPassword();
 
-// 🔹 Überprüfen, ob der Spieler schon eine Anfrage hat
-async function hasOpenRequest(name) {
-  const snap = await get(ref(db, "requests"));
-  if (!snap.exists()) return false;
-  const data = snap.val();
-  return Object.values(data).some(
-    (r) => r.name === name && r.status === "offen"
-  );
+// 🔹 Prüft, ob es schon eine offene Anfrage gibt
+async function checkExisting(name) {
+  const q = query(ref(db, "requests"), orderByChild("name"), equalTo(name));
+  const snap = await get(q);
+  if (!snap.exists()) return null;
+
+  let foundId = null;
+  let foundData = null;
+  snap.forEach(child => {
+    const val = child.val();
+    if (val.status === "offen") {
+      foundId = child.key;
+      foundData = val;
+    }
+  });
+  return foundId ? { id: foundId, data: foundData } : null;
 }
 
 // 🔹 Anfrage senden
 sendBtn.onclick = async () => {
   const name = nameInput.value.trim();
   if (!name) {
-    statusP.textContent = "⚠️ Bitte gib deinen Namen ein!";
+    status.textContent = texts[lang].invalid;
     return;
   }
 
-  // Prüfen ob bereits eine offene Anfrage existiert
-  if (await hasOpenRequest(name)) {
-    statusP.textContent = "🚫 Du hast bereits eine offene Anfrage! Bitte warte, bis sie beantwortet wurde.";
-    return;
-  }
-
-  // Anfrage erstellen
-  const newRef = push(ref(db, "requests"));
-  await set(newRef, {
-    name: name,
-    status: "offen"
-  });
-
-  requestKey = newRef.key;
-  statusP.textContent = "✅ Anfrage gesendet! Bitte warte auf Freigabe...";
-  nameInput.disabled = true;
+  status.textContent = texts[lang].sending;
   sendBtn.disabled = true;
 
-  // Status in Echtzeit überwachen
-  const reqRef = ref(db, `requests/${requestKey}/status`);
-  onValue(reqRef, (snap) => {
+  // Prüfen ob schon Anfrage existiert
+  const existing = await checkExisting(name);
+  if (existing) {
+    status.textContent = texts[lang].exists;
+    sendBtn.disabled = false;
+    return;
+  }
+
+  const newReq = push(ref(db, "requests"));
+  await set(newReq, { name, status: "offen" });
+  currentRequestId = newReq.key;
+  status.textContent = texts[lang].sent;
+
+  // Live beobachten
+  onValue(ref(db, "requests/" + currentRequestId), async (snap) => {
     if (!snap.exists()) return;
-    const status = snap.val();
-    if (status === "akzeptiert") {
-      statusP.textContent = "🎉 Anfrage akzeptiert!";
-      passwordP.textContent = `🔑 Hotspot-Passwort: ${password}`;
-    } else if (status === "abgelehnt") {
-      statusP.textContent = "❌ Anfrage wurde abgelehnt.";
+    const data = snap.val();
+    if (data.status === "akzeptiert") {
+      const settingsSnap = await get(ref(db, "settings/linkURL"));
+      const url = settingsSnap.exists() ? settingsSnap.val() : "#";
+      status.innerHTML = texts[lang].accepted(url);
+      sendBtn.style.display = "none";
+      nameInput.style.display = "none";
+    } else if (data.status === "abgelehnt") {
+      status.textContent = texts[lang].declined;
+      sendBtn.style.display = "none";
+      nameInput.style.display = "none";
     }
   });
 };
+
+// Sprache beim Laden einstellen
+applyLang();
 </script>
 </body>
 </html>

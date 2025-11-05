@@ -2,107 +2,73 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<title>Admin-Bereich 🦎</title>
+<title>Admin Bereich ⚙️</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
 body {
   font-family: Arial;
-  background: #0f172a;
-  color: #fff;
-  text-align: center;
+  background: #111827;
+  color: #f1f5f9;
   padding: 30px;
 }
-
 h1 {
   color: #38bdf8;
+  text-align: center;
 }
-
 section {
   background: #1e293b;
-  padding: 20px;
-  border-radius: 10px;
+  padding: 15px;
   margin: 20px auto;
-  width: 90%;
+  border-radius: 10px;
   max-width: 500px;
-  text-align: left;
 }
-
-label {
+input, button, label {
   display: block;
-  margin-top: 10px;
-  font-weight: bold;
-}
-
-input, select, button {
-  margin-top: 5px;
-  width: 100%;
+  margin: 8px auto;
   padding: 8px;
-  border-radius: 8px;
+  font-size: 16px;
+  border-radius: 6px;
   border: none;
-  font-size: 15px;
 }
-
+input[type=checkbox] { display: inline; width: auto; margin-left: 10px; }
 button {
   background-color: #3b82f6;
   color: white;
   cursor: pointer;
-  margin-top: 10px;
 }
-
-button:hover {
-  background-color: #2563eb;
-}
-
-.request {
-  border-bottom: 1px solid #334155;
-  padding: 10px 0;
-}
-
-.request span {
-  display: inline-block;
-  width: 60%;
-}
-
-.request button {
-  width: auto;
-  padding: 6px 10px;
-  font-size: 13px;
-  margin-left: 5px;
+button:hover { background-color: #2563eb; }
+hr { border: 0.5px solid #334155; margin: 15px 0; }
+#requests { margin-top: 15px; }
+.requestBox {
+  background: #334155;
+  padding: 8px;
+  border-radius: 6px;
+  margin-bottom: 8px;
 }
 </style>
 </head>
 <body>
-<h1>🦎 Admin-Bereich</h1>
+<h1>⚙️ Admin Bereich</h1>
 
 <section>
-  <h2>⚙️ Einstellungen</h2>
-  <label>Hotspot-Passwort:</label>
-  <input id="password" placeholder="Passwort eingeben">
-
-  <label>Minimale Zahl:</label>
-  <input type="number" id="minNumber" value="1">
-
-  <label>Maximale Zahl:</label>
-  <input type="number" id="maxNumber" value="50">
-
-  <label>Maximale Versuche:</label>
-  <input type="number" id="maxAttempts" value="6">
-
-  <label>Zufallszahl aktivieren?</label>
-  <select id="randomNumber">
-    <option value="true">Ja</option>
-    <option value="false">Nein</option>
-  </select>
-
-  <label>Feste Zahl (wenn Zufall aus):</label>
-  <input type="number" id="fixedNumber" value="10">
-
-  <button id="saveBtn">💾 Einstellungen speichern</button>
-  <button id="reloadBtn">🔄 Alle Spielerseiten neu laden</button>
+  <h2>🔢 Spieleinstellungen</h2>
+  <label>Minimale Zahl: <input type="number" id="minNumber" value="1"></label>
+  <label>Maximale Zahl: <input type="number" id="maxNumber" value="50"></label>
+  <label>Feste Zahl (wenn Zufall aus): <input type="number" id="fixedNumber" value="10"></label>
+  <label>Max. Versuche: <input type="number" id="maxAttempts" value="5"></label>
+  <label><input type="checkbox" id="randomNumber"> Zufallszahl aktivieren</label>
+  <label>🔗 Link / Passwort-Seite: <input type="text" id="linkURL" placeholder="https://..."></label>
+  <button id="saveSettings">💾 Speichern</button>
 </section>
 
 <section>
-  <h2>📨 Anfragen verwalten</h2>
+  <h2>🔄 Steuerung</h2>
+  <button id="reloadAll">🔃 Alle Spielerseiten neu laden</button>
+  <p id="lastReloadText">Letzter Reload: -</p>
+</section>
+
+<section>
+  <h2>📬 Anfragen verwalten</h2>
   <div id="requests">Lade Anfragen...</div>
 </section>
 
@@ -119,88 +85,100 @@ const firebaseConfig = {
 };
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
-import { getDatabase, ref, set, get, update, onValue, remove } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
+import { getDatabase, ref, set, get, onValue, remove, update } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-const passwordInput = document.getElementById("password");
-const minInput = document.getElementById("minNumber");
-const maxInput = document.getElementById("maxNumber");
-const attemptsInput = document.getElementById("maxAttempts");
-const randomSelect = document.getElementById("randomNumber");
-const fixedInput = document.getElementById("fixedNumber");
-const saveBtn = document.getElementById("saveBtn");
-const reloadBtn = document.getElementById("reloadBtn");
+// Elemente
+const minNumber = document.getElementById("minNumber");
+const maxNumber = document.getElementById("maxNumber");
+const fixedNumber = document.getElementById("fixedNumber");
+const maxAttempts = document.getElementById("maxAttempts");
+const randomNumber = document.getElementById("randomNumber");
+const linkURL = document.getElementById("linkURL");
+const saveSettingsBtn = document.getElementById("saveSettings");
+const reloadBtn = document.getElementById("reloadAll");
+const lastReloadText = document.getElementById("lastReloadText");
 const requestsDiv = document.getElementById("requests");
 
 // 🔹 Einstellungen laden
 async function loadSettings() {
-  const snapshot = await get(ref(db, "settings"));
-  if (snapshot.exists()) {
-    const s = snapshot.val();
-    passwordInput.value = s.password || "";
-    minInput.value = s.minNumber || 1;
-    maxInput.value = s.maxNumber || 50;
-    attemptsInput.value = s.maxAttempts || 6;
-    randomSelect.value = s.randomNumber ? "true" : "false";
-    fixedInput.value = s.fixedNumber || 10;
+  const snap = await get(ref(db, "settings"));
+  if (snap.exists()) {
+    const s = snap.val();
+    minNumber.value = s.minNumber;
+    maxNumber.value = s.maxNumber;
+    fixedNumber.value = s.fixedNumber;
+    maxAttempts.value = s.maxAttempts;
+    randomNumber.checked = s.randomNumber;
+    linkURL.value = s.linkURL || "";
   }
 }
-await loadSettings();
+loadSettings();
 
 // 🔹 Einstellungen speichern
-saveBtn.onclick = async () => {
+saveSettingsBtn.onclick = async () => {
   await set(ref(db, "settings"), {
-    password: passwordInput.value,
-    minNumber: Number(minInput.value),
-    maxNumber: Number(maxInput.value),
-    maxAttempts: Number(attemptsInput.value),
-    randomNumber: randomSelect.value === "true",
-    fixedNumber: Number(fixedInput.value)
+    minNumber: Number(minNumber.value),
+    maxNumber: Number(maxNumber.value),
+    fixedNumber: Number(fixedNumber.value),
+    maxAttempts: Number(maxAttempts.value),
+    randomNumber: randomNumber.checked,
+    linkURL: linkURL.value
   });
   alert("✅ Einstellungen gespeichert!");
 };
 
-// 🔹 Reload-Button — löst nur EIN Signal aus, das die Spieler-Seite einmal neu lädt
+// 🔹 Reload für alle Spielerseiten
 reloadBtn.onclick = async () => {
-  const reloadRef = ref(db, "reloadFlag");
-  await set(reloadRef, { time: Date.now() });
-  alert("🔄 Spieler-Seiten werden neu geladen!");
+  const newTime = Date.now().toString();
+  await set(ref(db, "reloadFlag/time"), newTime);
+  lastReloadText.textContent = "Letzter Reload: " + new Date().toLocaleTimeString();
 };
 
-// 🔹 Anfragen anzeigen
-onValue(ref(db, "requests"), (snapshot) => {
+// 🔹 Letzten Reload anzeigen
+onValue(ref(db, "reloadFlag/time"), (snap) => {
+  if (snap.exists()) {
+    const time = new Date(Number(snap.val())).toLocaleTimeString();
+    lastReloadText.textContent = "Letzter Reload: " + time;
+  }
+});
+
+// 🔹 Anfragen laden & anzeigen
+onValue(ref(db, "requests"), (snap) => {
   requestsDiv.innerHTML = "";
-  if (!snapshot.exists()) {
-    requestsDiv.textContent = "Keine Anfragen vorhanden.";
+  if (!snap.exists()) {
+    requestsDiv.textContent = "Keine offenen Anfragen.";
     return;
   }
 
-  const data = snapshot.val();
-  for (const [key, req] of Object.entries(data)) {
-    if (req.status !== "offen") continue; // Nur offene Anfragen
+  const data = snap.val();
+  let count = 0;
+  for (const [id, req] of Object.entries(data)) {
+    if (req.status === "offen") {
+      count++;
+      const box = document.createElement("div");
+      box.className = "requestBox";
+      box.innerHTML = `
+        <p>👤 ${req.name}</p>
+        <button class="acceptBtn">✅ Akzeptieren</button>
+        <button class="declineBtn">❌ Ablehnen</button>
+      `;
 
-    const div = document.createElement("div");
-    div.classList.add("request");
-    div.innerHTML = `
-      <span>${req.name || "Unbekannt"}</span>
-      <button data-key="${key}" data-action="accept">✅ Akzeptieren</button>
-      <button data-key="${key}" data-action="deny">❌ Ablehnen</button>
-    `;
-    requestsDiv.appendChild(div);
+      box.querySelector(".acceptBtn").onclick = () => {
+        update(ref(db, "requests/" + id), { status: "akzeptiert" });
+      };
+
+      box.querySelector(".declineBtn").onclick = () => {
+        update(ref(db, "requests/" + id), { status: "abgelehnt" });
+      };
+
+      requestsDiv.appendChild(box);
+    }
   }
 
-  // Klick-Events
-  document.querySelectorAll("button[data-key]").forEach((btn) => {
-    btn.onclick = async () => {
-      const key = btn.getAttribute("data-key");
-      const action = btn.getAttribute("data-action");
-      const newStatus = action === "accept" ? "akzeptiert" : "abgelehnt";
-      await update(ref(db, `requests/${key}`), { status: newStatus });
-      setTimeout(() => remove(ref(db, `requests/${key}`)), 500);
-    };
-  });
+  if (count === 0) requestsDiv.textContent = "Keine offenen Anfragen.";
 });
 </script>
 </body>

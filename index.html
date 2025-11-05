@@ -131,13 +131,23 @@ guessBtn.onclick = () => {
   info.textContent = `Noch ${attemptsLeft} Versuche.`;
 };
 
-// 🔹 🔄 Admin-Reload-Listener mit localStorage-Schutz
+// 🔹 🔄 Admin-Reload-Listener – jetzt 100% stabil
 const reloadRef = ref(db, "reloadFlag/time");
+let firstLoad = true;
+
 onValue(reloadRef, (snap) => {
   if (!snap.exists()) return;
   const newTime = snap.val();
   const lastReload = localStorage.getItem("lastReloadTime");
-  // Nur neuladen, wenn die neue Zeit neuer ist
+
+  // Beim ersten Start: nur merken, nicht reloaden
+  if (firstLoad) {
+    firstLoad = false;
+    localStorage.setItem("lastReloadTime", newTime);
+    return;
+  }
+
+  // Nur reloaden, wenn der neue Timestamp anders ist
   if (newTime && newTime !== lastReload) {
     console.log("🔄 Admin hat Reload ausgelöst!");
     localStorage.setItem("lastReloadTime", newTime);

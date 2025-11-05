@@ -45,6 +45,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
+// Elemente
 const guessInput = document.getElementById("guess");
 const guessBtn = document.getElementById("guessBtn");
 const info = document.getElementById("info");
@@ -65,21 +66,21 @@ const texts = {
         range:(min,max)=>`Errate die Zahl zwischen ${min} und ${max}`, tooHigh:"📉 Zu hoch!", tooLow:"📈 Zu niedrig!",
         wrong:"❌ Falsch! Versuch es nochmal!", correct:"🎉 Richtig! Du wirst weitergeleitet...",
         noTries:(num)=>`❌ Keine Versuche mehr! Die richtige Zahl war ${num}.`, triesLeft:(num)=>`Noch ${num} Versuche.`,
-        invalid:"⚠️ Bitte gib eine gültige Zahl ein!" },
+        invalid:"⚠️ Bitte gib eine gültige Zahl ein!", errorLoad:"❌ Einstellungen konnten nicht geladen werden!" },
   en: { title:"🔢 Guess the Number", placeholder:"Number", guessBtn:"Guess", loading:"Loading settings...",
         range:(min,max)=>`Guess the number between ${min} and ${max}`, tooHigh:"📉 Too high!", tooLow:"📈 Too low!",
         wrong:"❌ Wrong! Try again!", correct:"🎉 Correct! Redirecting...", noTries:(num)=>`❌ No tries left! The correct number was ${num}.`,
-        triesLeft:(num)=>`${num} tries left.`, invalid:"⚠️ Please enter a valid number!" }
+        triesLeft:(num)=>`${num} tries left.`, invalid:"⚠️ Please enter a valid number!", errorLoad:"❌ Could not load settings!" }
 };
 
 // Sprachumschalter
 langBtn.onclick = () => {
-  lang = lang === "de" ? "en" : "de";
-  langBtn.textContent = lang === "de" ? "🇩🇪 Deutsch" : "🇬🇧 English";
+  lang = lang==="de"?"en":"de";
+  langBtn.textContent = lang==="de"?"🇩🇪 Deutsch":"🇬🇧 English";
   applyLanguage();
 };
 
-function applyLanguage() {
+function applyLanguage(){
   title.textContent = texts[lang].title;
   guessInput.placeholder = texts[lang].placeholder;
   guessBtn.textContent = texts[lang].guessBtn;
@@ -89,9 +90,19 @@ function applyLanguage() {
 
 // Einstellungen laden
 async function loadSettings(){
-  const snapshot = await get(ref(db,"settings"));
-  if(snapshot.exists()){ settings=snapshot.val(); applyLanguage(); resetGame(); }
-  else rangeText.textContent=texts[lang].loading;
+  try {
+    const snapshot = await get(ref(db,"settings"));
+    if(snapshot.exists()){ 
+      settings = snapshot.val(); 
+      applyLanguage(); 
+      resetGame(); 
+    } else {
+      rangeText.textContent = texts[lang].errorLoad;
+    }
+  } catch(e){
+    console.error("Fehler beim Laden der Einstellungen:", e);
+    rangeText.textContent = texts[lang].errorLoad;
+  }
 }
 
 // Neue Runde
@@ -133,8 +144,8 @@ guessBtn.onclick=()=>{
   hint.textContent=texts[lang].wrong;
 
   if(!isRandom){
-    const highLow=guess>currentNumber?texts[lang].tooHigh:texts[lang].tooLow;
-    result.innerHTML=highLow;
+    const highLow = guess>currentNumber ? texts[lang].tooHigh : texts[lang].tooLow;
+    result.innerHTML = highLow;
   } else result.textContent="";
 
   info.textContent=texts[lang].triesLeft(attemptsLeft);

@@ -13,7 +13,6 @@ body {
   padding: 40px;
 }
 h1 { color: #38bdf8; }
-
 input, button {
   padding: 10px;
   margin: 8px;
@@ -28,15 +27,23 @@ button {
   cursor: pointer;
 }
 button:hover { background-color: #2563eb; }
-
 #info, #hint, #result {
   margin-top: 15px;
   font-size: 18px;
 }
+#langBtn {
+  position: absolute;
+  top: 10px;
+  right: 15px;
+  background: #1e293b;
+  color: white;
+  border-radius: 8px;
+}
 </style>
 </head>
 <body>
-<h1>🔢 Zahlen erraten</h1>
+<button id="langBtn">🇩🇪 Deutsch</button>
+<h1 id="title">🔢 Zahlen erraten</h1>
 <p id="rangeText">Lade Einstellungen...</p>
 <input type="number" id="guess" placeholder="Zahl">
 <button id="guessBtn">Raten</button>
@@ -68,24 +75,77 @@ const info = document.getElementById("info");
 const hint = document.getElementById("hint");
 const result = document.getElementById("result");
 const rangeText = document.getElementById("rangeText");
+const title = document.getElementById("title");
+const langBtn = document.getElementById("langBtn");
 
+let lang = "de";
 let settings = {};
 let currentNumber = 0;
 let attemptsLeft = 0;
+
+// 🗣 Sprachtexte
+const texts = {
+  de: {
+    title: "🔢 Zahlen erraten",
+    placeholder: "Zahl",
+    guessBtn: "Raten",
+    loading: "Lade Einstellungen...",
+    range: (min, max) => `Errate die Zahl zwischen ${min} und ${max}`,
+    tooHigh: "📉 Zu hoch!",
+    tooLow: "📈 Zu niedrig!",
+    wrong: "❌ Falsch! Versuch es nochmal!",
+    correct: "🎉 Richtig! Du wirst weitergeleitet...",
+    noTries: (num) => `❌ Keine Versuche mehr! Die richtige Zahl war ${num}.`,
+    triesLeft: (num) => `Noch ${num} Versuche.`,
+    invalid: "⚠️ Bitte gib eine gültige Zahl ein!"
+  },
+  en: {
+    title: "🔢 Guess the Number",
+    placeholder: "Number",
+    guessBtn: "Guess",
+    loading: "Loading settings...",
+    range: (min, max) => `Guess the number between ${min} and ${max}`,
+    tooHigh: "📉 Too high!",
+    tooLow: "📈 Too low!",
+    wrong: "❌ Wrong! Try again!",
+    correct: "🎉 Correct! Redirecting...",
+    noTries: (num) => `❌ No tries left! The correct number was ${num}.`,
+    triesLeft: (num) => `${num} tries left.`,
+    invalid: "⚠️ Please enter a valid number!"
+  }
+};
+
+// 🟦 Sprachumschalter
+langBtn.onclick = () => {
+  lang = lang === "de" ? "en" : "de";
+  langBtn.textContent = lang === "de" ? "🇩🇪 Deutsch" : "🇬🇧 English";
+  applyLanguage();
+};
+
+function applyLanguage() {
+  title.textContent = texts[lang].title;
+  guessInput.placeholder = texts[lang].placeholder;
+  guessBtn.textContent = texts[lang].guessBtn;
+  if (settings.minNumber) {
+    rangeText.textContent = texts[lang].range(settings.minNumber, settings.maxNumber);
+  } else {
+    rangeText.textContent = texts[lang].loading;
+  }
+}
 
 // 🔹 Einstellungen laden
 async function loadSettings() {
   const snapshot = await get(ref(db, "settings"));
   if (snapshot.exists()) {
     settings = snapshot.val();
-    rangeText.textContent = `Errate die Zahl zwischen ${settings.minNumber} und ${settings.maxNumber}`;
+    applyLanguage();
     resetGame();
   } else {
-    rangeText.textContent = "Fehler beim Laden der Einstellungen!";
+    rangeText.textContent = texts[lang].loading;
   }
 }
 
-// 🔹 Neue Zahl starten
+// 🔹 Neue Runde
 function resetGame() {
   const min = settings.minNumber || 1;
   const max = settings.maxNumber || 50;
@@ -94,7 +154,7 @@ function resetGame() {
     ? Math.floor(Math.random() * (max - min + 1)) + min
     : Number(settings.fixedNumber) || 10;
   attemptsLeft = settings.maxAttempts || 5;
-  info.textContent = `Du hast ${attemptsLeft} Versuche.`;
+  info.textContent = texts[lang].triesLeft(attemptsLeft);
   hint.textContent = "";
   result.textContent = "";
   guessInput.disabled = false;
@@ -105,7 +165,7 @@ function resetGame() {
 guessBtn.onclick = () => {
   const guess = Number(guessInput.value);
   if (!guess) {
-    hint.textContent = "⚠️ Bitte gib eine gültige Zahl ein!";
+    hint.textContent = texts[lang].invalid;
     return;
   }
 
@@ -113,62 +173,52 @@ guessBtn.onclick = () => {
   const isRandom = settings.randomNumber;
 
   if (guess === currentNumber) {
-    result.textContent = "🎉 Richtig! Du wirst weitergeleitet...";
-    setTimeout(() => {
-      window.location.href = "anfrage.html"; // Weiter zur Anfrage-Seite
-    }, 1000);
+    result.textContent = texts[lang].correct;
+    setTimeout(() => window.location.href = "anfrage.html", 1000);
     guessInput.disabled = true;
     guessBtn.disabled = true;
     return;
   }
 
   if (attemptsLeft <= 0) {
-    result.textContent = `❌ Keine Versuche mehr! Die richtige Zahl war ${currentNumber}.`;
+    result.textContent = texts[lang].noTries(currentNumber);
     guessInput.disabled = true;
     guessBtn.disabled = true;
     return;
   }
 
-  // 👇 Unterschiedliche Hinweise je nach Zufallsmodus
-  if (isRandom) {
-    hint.textContent = "❌ Falsch! Versuch es nochmal!";
-  } else {
-    hint.textContent = guess > currentNumber ? "📉 Zu hoch!" : "📈 Zu niedrig!";
-  }
+  hint.textContent = isRandom
+    ? texts[lang].wrong
+    : (guess > currentNumber ? texts[lang].tooHigh : texts[lang].tooLow);
 
-  info.textContent = `Noch ${attemptsLeft} Versuche.`;
+  info.textContent = texts[lang].triesLeft(attemptsLeft);
 
-  // 🔁 Wenn Zufall an ist, neue Zahl generieren nach jedem Versuch
   if (isRandom) {
     const min = settings.minNumber || 1;
     const max = settings.maxNumber || 50;
     currentNumber = Math.floor(Math.random() * (max - min + 1)) + min;
   }
-};
+}
 
-// 🔹 🔄 Admin-Reload-Listener – stabil (kein Loop!)
+// 🔹 Reload Listener (sicher)
 const reloadRef = ref(db, "reloadFlag/time");
 let firstLoad = true;
-
 onValue(reloadRef, (snap) => {
   if (!snap.exists()) return;
   const newTime = snap.val();
   const lastReload = localStorage.getItem("lastReloadTime");
-
   if (firstLoad) {
     firstLoad = false;
     localStorage.setItem("lastReloadTime", newTime);
     return;
   }
-
   if (newTime && newTime !== lastReload) {
-    console.log("🔄 Admin hat Reload ausgelöst!");
     localStorage.setItem("lastReloadTime", newTime);
     location.reload();
   }
 });
 
-// Spiel starten
+// Start
 loadSettings();
 </script>
 </body>

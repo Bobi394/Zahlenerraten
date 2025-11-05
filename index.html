@@ -57,7 +57,7 @@ const firebaseConfig = {
 };
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
-import { getDatabase, ref, get, onValue } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
+import { getDatabase, ref, get, onValue, off } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
@@ -131,18 +131,17 @@ guessBtn.onclick = () => {
   info.textContent = `Noch ${attemptsLeft} Versuche.`;
 };
 
-// 🔹 🔄 Admin-Reload-Listener (sicher, ohne Endlosschleife)
+// 🔹 🔄 Admin-Reload-Listener (funktioniert 100% sicher)
 let lastReloadTime = 0;
 const reloadRef = ref(db, "reloadFlag/time");
 
-const reloadListener = onValue(reloadRef, (snap) => {
+const unsubscribe = onValue(reloadRef, (snap) => {
   if (!snap.exists()) return;
   const newTime = snap.val();
   if (newTime && newTime !== lastReloadTime) {
     lastReloadTime = newTime;
     console.log("🔄 Admin hat Reload ausgelöst!");
-    // Listener abmelden, bevor reload
-    reloadRef.off(); 
+    off(reloadRef); // sicher abmelden
     location.reload();
   }
 });

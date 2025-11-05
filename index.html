@@ -2,13 +2,13 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Zahlenraten 🎮</title>
+<title>Zahlen-Rätsel 🧩</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
 body {
-  background-color: #0f172a;
-  color: white;
   font-family: Arial;
+  background: #0f172a;
+  color: #fff;
   text-align: center;
   padding: 40px;
 }
@@ -20,16 +20,17 @@ input, button {
   border: none;
   font-size: 16px;
 }
-input {
-  width: 100px;
-  text-align: center;
-}
+input { width: 80px; text-align: center; }
 button {
   background-color: #3b82f6;
-  color: white;
+  color: #fff;
   cursor: pointer;
 }
 button:hover { background-color: #2563eb; }
+#info, #hint, #result {
+  margin-top: 15px;
+  font-size: 18px;
+}
 #langBtn {
   position: absolute;
   top: 10px;
@@ -42,11 +43,12 @@ button:hover { background-color: #2563eb; }
 </head>
 <body>
 <button id="langBtn">🇩🇪 Deutsch</button>
-<h1 id="title">🎮 Roblox Zahlenraten</h1>
-<p id="desc">Errate die geheime Zahl und erhalte eine Roblox-Belohnung!</p>
-<p id="range">Bereich: 1–50</p>
-<input type="number" id="guessInput" placeholder="Zahl">
+<h1 id="title">🔢 Zahlen erraten</h1>
+<p id="rangeText">Lade Einstellungen...</p>
+<input type="number" id="guess" placeholder="Zahl">
 <button id="guessBtn">Raten</button>
+<p id="hint"></p>
+<p id="info"></p>
 <p id="result"></p>
 
 <script type="module">
@@ -67,118 +69,157 @@ import { getDatabase, ref, get, onValue } from "https://www.gstatic.com/firebase
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-const title = document.getElementById("title");
-const desc = document.getElementById("desc");
-const rangeText = document.getElementById("range");
-const guessInput = document.getElementById("guessInput");
+const guessInput = document.getElementById("guess");
 const guessBtn = document.getElementById("guessBtn");
+const info = document.getElementById("info");
+const hint = document.getElementById("hint");
 const result = document.getElementById("result");
+const rangeText = document.getElementById("rangeText");
+const title = document.getElementById("title");
 const langBtn = document.getElementById("langBtn");
 
-let randomMode = true;
-let min = 1, max = 50;
-let attempts = 3;
 let lang = "de";
+let settings = {};
+let currentNumber = 0;
+let attemptsLeft = 0;
 
-// 🔹 Sprachtexte
+// 🗣 Sprachtexte
 const texts = {
   de: {
-    title: "🎮 Roblox Zahlenraten",
-    desc: "Errate die geheime Zahl und erhalte eine Roblox-Belohnung!",
-    range: (a,b) => `Bereich: ${a}–${b}`,
-    guess: "Raten",
-    tooLow: "🔻 Zu niedrig!",
-    tooHigh: "🔺 Zu hoch!",
-    correct: "✅ Richtig! Du wirst weitergeleitet...",
-    attemptsLeft: (x) => `Du hast noch ${x} Versuche.`,
-    lose: "❌ Keine Versuche mehr! Versuch es später erneut!",
-    invalid: "⚠️ Bitte gib eine Zahl ein!"
+    title: "🔢 Zahlen erraten",
+    placeholder: "Zahl",
+    guessBtn: "Raten",
+    loading: "Lade Einstellungen...",
+    range: (min, max) => `Errate die Zahl zwischen ${min} und ${max}`,
+    tooHigh: "📉 Zu hoch!",
+    tooLow: "📈 Zu niedrig!",
+    wrong: "❌ Falsch! Versuch es nochmal!",
+    correct: "🎉 Richtig! Du wirst weitergeleitet...",
+    noTries: (num) => `❌ Keine Versuche mehr! Die richtige Zahl war ${num}.`,
+    triesLeft: (num) => `Noch ${num} Versuche.`,
+    invalid: "⚠️ Bitte gib eine gültige Zahl ein!"
   },
   en: {
-    title: "🎮 Roblox Number Guessing",
-    desc: "Guess the secret number to earn a Roblox reward!",
-    range: (a,b) => `Range: ${a}–${b}`,
-    guess: "Guess",
-    tooLow: "🔻 Too low!",
-    tooHigh: "🔺 Too high!",
-    correct: "✅ Correct! Redirecting...",
-    attemptsLeft: (x) => `You have ${x} tries left.`,
-    lose: "❌ No tries left! Try again later!",
-    invalid: "⚠️ Please enter a number!"
+    title: "🔢 Guess the Number",
+    placeholder: "Number",
+    guessBtn: "Guess",
+    loading: "Loading settings...",
+    range: (min, max) => `Guess the number between ${min} and ${max}`,
+    tooHigh: "📉 Too high!",
+    tooLow: "📈 Too low!",
+    wrong: "❌ Wrong! Try again!",
+    correct: "🎉 Correct! Redirecting...",
+    noTries: (num) => `❌ No tries left! The correct number was ${num}.`,
+    triesLeft: (num) => `${num} tries left.`,
+    invalid: "⚠️ Please enter a valid number!"
   }
 };
 
-// 🗣 Sprachumschalter
+// 🟦 Sprachumschalter
 langBtn.onclick = () => {
   lang = lang === "de" ? "en" : "de";
   langBtn.textContent = lang === "de" ? "🇩🇪 Deutsch" : "🇬🇧 English";
-  applyLang();
+  applyLanguage();
 };
 
-// Sprache anwenden
-function applyLang() {
+function applyLanguage() {
   title.textContent = texts[lang].title;
-  desc.textContent = texts[lang].desc;
-  rangeText.textContent = texts[lang].range(min, max);
-  guessBtn.textContent = texts[lang].guess;
+  guessInput.placeholder = texts[lang].placeholder;
+  guessBtn.textContent = texts[lang].guessBtn;
+  if (settings.minNumber) {
+    rangeText.textContent = texts[lang].range(settings.minNumber, settings.maxNumber);
+  } else {
+    rangeText.textContent = texts[lang].loading;
+  }
 }
 
-// 🔹 Daten von Admin laden
+// 🔹 Einstellungen laden
 async function loadSettings() {
-  const snap = await get(ref(db, "settings"));
-  if (!snap.exists()) return;
-
-  const data = snap.val();
-  randomMode = data.randomMode ?? true;
-  min = data.min ?? 1;
-  max = data.max ?? 50;
-  attempts = data.maxAttempts ?? 3;
-  rangeText.textContent = texts[lang].range(min, max);
+  const snapshot = await get(ref(db, "settings"));
+  if (snapshot.exists()) {
+    settings = snapshot.val();
+    applyLanguage();
+    resetGame();
+  } else {
+    rangeText.textContent = texts[lang].loading;
+  }
 }
 
-await loadSettings();
-applyLang();
+// 🔹 Neue Runde
+function resetGame() {
+  const min = settings.minNumber || 1;
+  const max = settings.maxNumber || 50;
+  const isRandom = settings.randomNumber;
+  currentNumber = isRandom
+    ? Math.floor(Math.random() * (max - min + 1)) + min
+    : Number(settings.fixedNumber) || 10;
+  attemptsLeft = settings.maxAttempts || 5;
+  info.textContent = texts[lang].triesLeft(attemptsLeft);
+  hint.textContent = "";
+  result.textContent = "";
+  guessInput.disabled = false;
+  guessBtn.disabled = false;
+}
 
-// 🔹 Zufällige Zahl erzeugen
-let secret = Math.floor(Math.random() * (max - min + 1)) + min;
+// 🔹 Rateversuch
+guessBtn.onclick = () => {
+  const guess = Number(guessInput.value);
+  if (!guess) {
+    hint.textContent = texts[lang].invalid;
+    return;
+  }
 
-// 🔹 Wenn Reload-Flag gesetzt wird → Seite neu laden
-let lastReloadTime = 0;
-onValue(ref(db, "reloadFlag/time"), (snap) => {
+  attemptsLeft--;
+  const isRandom = settings.randomNumber;
+
+  if (guess === currentNumber) {
+    result.textContent = texts[lang].correct;
+    setTimeout(() => window.location.href = "anfrage.html", 1000);
+    guessInput.disabled = true;
+    guessBtn.disabled = true;
+    return;
+  }
+
+  if (attemptsLeft <= 0) {
+    result.textContent = texts[lang].noTries(currentNumber);
+    guessInput.disabled = true;
+    guessBtn.disabled = true;
+    return;
+  }
+
+  hint.textContent = isRandom
+    ? texts[lang].wrong
+    : (guess > currentNumber ? texts[lang].tooHigh : texts[lang].tooLow);
+
+  info.textContent = texts[lang].triesLeft(attemptsLeft);
+
+  if (isRandom) {
+    const min = settings.minNumber || 1;
+    const max = settings.maxNumber || 50;
+    currentNumber = Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+}
+
+// 🔹 Reload Listener (sicher)
+const reloadRef = ref(db, "reloadFlag/time");
+let firstLoad = true;
+onValue(reloadRef, (snap) => {
   if (!snap.exists()) return;
-  const time = snap.val();
-  if (time !== lastReloadTime) {
-    lastReloadTime = time;
+  const newTime = snap.val();
+  const lastReload = localStorage.getItem("lastReloadTime");
+  if (firstLoad) {
+    firstLoad = false;
+    localStorage.setItem("lastReloadTime", newTime);
+    return;
+  }
+  if (newTime && newTime !== lastReload) {
+    localStorage.setItem("lastReloadTime", newTime);
     location.reload();
   }
 });
 
-// 🔹 Ratefunktion
-guessBtn.onclick = () => {
-  const guess = parseInt(guessInput.value);
-  if (isNaN(guess)) {
-    result.textContent = texts[lang].invalid;
-    return;
-  }
-
-  attempts--;
-  if (guess === secret) {
-    result.textContent = texts[lang].correct;
-    setTimeout(() => location.href = "anfrage.html", 1500);
-  } else if (!randomMode) {
-    if (guess < secret) result.textContent = texts[lang].tooLow;
-    else result.textContent = texts[lang].tooHigh;
-    result.textContent += "\n" + texts[lang].attemptsLeft(attempts);
-  } else {
-    // 🔹 Wenn Zufallsmodus aktiv ist, kein „zu hoch / zu niedrig“
-    result.textContent = texts[lang].attemptsLeft(attempts);
-  }
-
-  if (attempts <= 0 && guess !== secret) {
-    result.textContent = texts[lang].lose;
-    guessBtn.disabled = true;
-  }
-};
+// Start
+loadSettings();
 </script>
 </body>
 </html>

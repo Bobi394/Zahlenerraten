@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Anfrage senden 📨</title>
+<title>Roblox Anfrage 🕹️</title>
 <style>
 body {
   background-color: #0f172a;
@@ -21,7 +21,7 @@ input, button {
   font-size: 16px;
 }
 input {
-  width: 200px;
+  width: 220px;
   text-align: center;
 }
 button {
@@ -42,9 +42,9 @@ button:hover { background-color: #2563eb; }
 </head>
 <body>
 <button id="langBtn">🇩🇪 Deutsch</button>
-<h1 id="title">📨 Anfrage senden</h1>
-<p id="desc">Gib deinen Namen ein, um eine Anfrage zu stellen:</p>
-<input type="text" id="nameInput" placeholder="Dein Name">
+<h1 id="title">🕹️ Roblox Anfrage</h1>
+<p id="desc">Gib deinen Roblox-Benutzernamen ein, um eine Anfrage zu stellen:</p>
+<input type="text" id="nameInput" placeholder="Dein Roblox-Name">
 <button id="sendBtn">Anfrage senden</button>
 <p id="status"></p>
 
@@ -79,28 +79,28 @@ let currentRequestId = null;
 // 🗣 Texte
 const texts = {
   de: {
-    title: "📨 Anfrage senden",
-    desc: "Gib deinen Namen ein, um eine Anfrage zu stellen:",
-    placeholder: "Dein Name",
+    title: "🕹️ Roblox Anfrage",
+    desc: "Gib deinen Roblox-Benutzernamen ein, um eine Anfrage zu stellen:",
+    placeholder: "Dein Roblox-Name",
     send: "Anfrage senden",
     sending: "⏳ Anfrage wird gesendet...",
-    sent: "✅ Anfrage wurde gesendet! Warte auf Antwort...",
-    accepted: (url) => `✅ Deine Anfrage wurde akzeptiert!<br><a href="${url}" target="_blank" style="color:#38bdf8;">Hier klicken, um das Passwort zu sehen 🔑</a>`,
+    sent: "✅ Anfrage wurde gesendet! Warte, bis sie überprüft wurde...",
+    accepted: (url) => `✅ Deine Anfrage wurde akzeptiert!<br><a href="${url}" target="_blank" style="color:#38bdf8;">Hier klicken, um deine Belohnung zu sehen 🎁</a>`,
     declined: "❌ Deine Anfrage wurde abgelehnt!",
     exists: "⚠️ Du hast bereits eine offene Anfrage!",
-    invalid: "⚠️ Bitte gib deinen Namen ein!"
+    invalid: "⚠️ Bitte gib deinen Roblox-Namen ein!"
   },
   en: {
-    title: "📨 Send Request",
-    desc: "Enter your name to send a request:",
-    placeholder: "Your name",
+    title: "🕹️ Roblox Request",
+    desc: "Enter your Roblox username to send a request:",
+    placeholder: "Your Roblox name",
     send: "Send Request",
     sending: "⏳ Sending request...",
-    sent: "✅ Request sent! Please wait for a response...",
-    accepted: (url) => `✅ Your request has been accepted!<br><a href="${url}" target="_blank" style="color:#38bdf8;">Click here to view the password 🔑</a>`,
+    sent: "✅ Request sent! Please wait for it to be reviewed...",
+    accepted: (url) => `✅ Your request has been accepted!<br><a href="${url}" target="_blank" style="color:#38bdf8;">Click here to view your reward 🎁</a>`,
     declined: "❌ Your request was declined!",
     exists: "⚠️ You already have a pending request!",
-    invalid: "⚠️ Please enter your name!"
+    invalid: "⚠️ Please enter your Roblox name!"
   }
 };
 
@@ -118,22 +118,20 @@ function applyLang() {
   sendBtn.textContent = texts[lang].send;
 }
 
-// 🔹 Prüft, ob es schon eine offene Anfrage gibt
+// 🔹 Prüfen, ob es schon eine offene Anfrage gibt
 async function checkExisting(name) {
   const q = query(ref(db, "requests"), orderByChild("name"), equalTo(name));
   const snap = await get(q);
   if (!snap.exists()) return null;
 
   let foundId = null;
-  let foundData = null;
   snap.forEach(child => {
     const val = child.val();
     if (val.status === "offen") {
       foundId = child.key;
-      foundData = val;
     }
   });
-  return foundId ? { id: foundId, data: foundData } : null;
+  return foundId;
 }
 
 // 🔹 Anfrage senden
@@ -147,7 +145,6 @@ sendBtn.onclick = async () => {
   status.textContent = texts[lang].sending;
   sendBtn.disabled = true;
 
-  // Prüfen ob schon Anfrage existiert
   const existing = await checkExisting(name);
   if (existing) {
     status.textContent = texts[lang].exists;
@@ -160,7 +157,7 @@ sendBtn.onclick = async () => {
   currentRequestId = newReq.key;
   status.textContent = texts[lang].sent;
 
-  // Live beobachten
+  // 🔹 Beobachten, ob Admin akzeptiert
   onValue(ref(db, "requests/" + currentRequestId), async (snap) => {
     if (!snap.exists()) return;
     const data = snap.val();
@@ -178,7 +175,7 @@ sendBtn.onclick = async () => {
   });
 };
 
-// Sprache beim Laden einstellen
+// Sprache einstellen
 applyLang();
 </script>
 </body>

@@ -12,20 +12,16 @@ label { display: block; margin-top: 10px; font-weight: bold; }
 input, select, button { margin-top: 5px; width: 100%; padding: 8px; border-radius: 8px; border: none; font-size: 15px; }
 button { background-color: #3b82f6; color: white; cursor: pointer; margin-top: 10px; }
 button:hover { background-color: #2563eb; }
-.request { border-bottom: 1px solid #334155; padding: 10px 0; }
-.request span { display: inline-block; width: 60%; }
-.request button { width: auto; padding: 6px 10px; font-size: 13px; margin-left: 5px; }
+.requestItem { border-bottom: 1px solid #334155; padding: 8px 0; }
+.requestItem:last-child { border-bottom: none; }
+.requestActions button { width: auto; margin-right: 5px; padding: 6px 10px; font-size: 13px; }
 </style>
 </head>
 <body>
-
 <h1>🦎 Admin-Bereich</h1>
 
 <section>
   <h2>⚙️ Einstellungen</h2>
-  <label>Hotspot-Passwort:</label>
-  <input id="password" placeholder="Passwort eingeben">
-
   <label>Minimale Zahl:</label>
   <input type="number" id="minNumber" value="1">
 
@@ -44,18 +40,21 @@ button:hover { background-color: #2563eb; }
   <label>Feste Zahl (wenn Zufall aus):</label>
   <input type="number" id="fixedNumber" value="10">
 
+  <label>Link zur Passwort-Seite (für akzeptierte Anfragen):</label>
+  <input type="text" id="linkURL" placeholder="https://...">
+
   <button id="saveBtn">💾 Einstellungen speichern</button>
   <button id="reloadBtn">🔄 Alle Spieler neu laden</button>
 </section>
 
 <section>
-  <h2>📨 Anfragen verwalten</h2>
+  <h2>📨 Spieler-Anfragen</h2>
   <div id="requests">Lade Anfragen...</div>
 </section>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
-import { getDatabase, ref, set, get, update, onValue, remove } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
+import { getDatabase, ref, set, get, onValue, update, remove } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBSDffrKz3_AE_iuwOLuZNB0yWLStMysSI",
@@ -70,13 +69,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// Elemente
-const passwordInput = document.getElementById("password");
-const minInput = document.getElementById("minNumber");
-const maxInput = document.getElementById("maxNumber");
-const attemptsInput = document.getElementById("maxAttempts");
-const randomSelect = document.getElementById("randomNumber");
-const fixedInput = document.getElementById("fixedNumber");
 const saveBtn = document.getElementById("saveBtn");
 const reloadBtn = document.getElementById("reloadBtn");
 const requestsDiv = document.getElementById("requests");
@@ -84,14 +76,14 @@ const requestsDiv = document.getElementById("requests");
 // 🔹 Einstellungen laden
 async function loadSettings() {
   const snapshot = await get(ref(db, "settings"));
-  if(snapshot.exists()){
+  if (snapshot.exists()) {
     const s = snapshot.val();
-    passwordInput.value = s.password || "";
-    minInput.value = s.minNumber || 1;
-    maxInput.value = s.maxNumber || 50;
-    attemptsInput.value = s.maxAttempts || 6;
-    randomSelect.value = s.randomNumber ? "true" : "false";
-    fixedInput.value = s.fixedNumber || 10;
+    document.getElementById("minNumber").value = s.minNumber ?? 1;
+    document.getElementById("maxNumber").value = s.maxNumber ?? 50;
+    document.getElementById("maxAttempts").value = s.maxAttempts ?? 6;
+    document.getElementById("randomNumber").value = s.randomNumber ? "true" : "false";
+    document.getElementById("fixedNumber").value = s.fixedNumber ?? 10;
+    document.getElementById("linkURL").value = s.linkURL ?? "";
   }
 }
 await loadSettings();
@@ -99,49 +91,59 @@ await loadSettings();
 // 🔹 Einstellungen speichern
 saveBtn.onclick = async () => {
   await set(ref(db, "settings"), {
-    password: passwordInput.value,
-    minNumber: Number(minInput.value),
-    maxNumber: Number(maxInput.value),
-    maxAttempts: Number(attemptsInput.value),
-    randomNumber: randomSelect.value==="true",
-    fixedNumber: Number(fixedInput.value)
+    minNumber: Number(document.getElementById("minNumber").value),
+    maxNumber: Number(document.getElementById("maxNumber").value),
+    maxAttempts: Number(document.getElementById("maxAttempts").value),
+    randomNumber: document.getElementById("randomNumber").value === "true",
+    fixedNumber: Number(document.getElementById("fixedNumber").value),
+    linkURL: document.getElementById("linkURL").value
   });
   alert("✅ Einstellungen gespeichert!");
 };
 
-// 🔹 Reload-Button
+// 🔹 Reload Button
 reloadBtn.onclick = async () => {
-  const reloadRef = ref(db, "reloadFlag");
-  await set(reloadRef, { time: Date.now() });
+  const reloadRef = ref(db, "reloadFlag/time");
+  await set(reloadRef, Date.now());
   alert("🔄 Spieler-Seiten werden neu geladen!");
 };
 
-// 🔹 Anfragen anzeigen
-onValue(ref(db, "requests"), (snapshot) => {
-  requestsDiv.innerHTML = "";
-  if(!snapshot.exists()){ requestsDiv.textContent="Keine Anfragen vorhanden."; return; }
+// 🔹 Anfragen live anzeigen
+const requestsRef = ref(db, "requests");
+onValue(requestsRef, (snapshot) => {
+  if (!snapshot.exists()) {
+    requestsDiv.textContent = "Keine Anfragen vorhanden.";
+    return;
+  }
 
   const data = snapshot.val();
-  for(const [key, req] of Object.entries(data)){
-    if(req.status !== "offen") continue;
+  requestsDiv.innerHTML = "";
+
+  for (const [key, req] of Object.entries(data)) {
+    if (req.status && req.status !== "offen") continue;
+
     const div = document.createElement("div");
-    div.classList.add("request");
+    div.classList.add("requestItem");
     div.innerHTML = `
-      <span>${req.name || "Unbekannt"}</span>
-      <button data-key="${key}" data-action="accept">✅ Akzeptieren</button>
-      <button data-key="${key}" data-action="deny">❌ Ablehnen</button>
+      <b>🧍 Name:</b> ${req.name || "Unbekannt"}<br>
+      <b>📅 Gesendet:</b> ${req.time ? new Date(req.time).toLocaleString() : "Unbekannt"}<br>
+      <div class="requestActions">
+        <button data-key="${key}" data-action="accept">✅ Akzeptieren</button>
+        <button data-key="${key}" data-action="deny">❌ Ablehnen</button>
+      </div>
     `;
     requestsDiv.appendChild(div);
   }
 
-  document.querySelectorAll("button[data-key]").forEach(btn=>{
-    btn.onclick=async ()=>{
+  // Klick-Events
+  document.querySelectorAll("[data-key]").forEach(btn => {
+    btn.onclick = async () => {
       const key = btn.getAttribute("data-key");
       const action = btn.getAttribute("data-action");
-      const newStatus = action==="accept"?"akzeptiert":"abgelehnt";
+      const newStatus = action === "accept" ? "akzeptiert" : "abgelehnt";
       await update(ref(db, `requests/${key}`), { status: newStatus });
-      setTimeout(()=>remove(ref(db, `requests/${key}`)), 500);
-    }
+      setTimeout(() => remove(ref(db, `requests/${key}`)), 1000);
+    };
   });
 });
 </script>

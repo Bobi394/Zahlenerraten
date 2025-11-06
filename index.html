@@ -5,21 +5,46 @@
 <title>Zahlen-Rätsel 🧩</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-body { font-family: Arial; background: #0f172a; color: #fff; text-align: center; padding: 40px; }
+body {
+  font-family: Arial;
+  background: #0f172a;
+  color: #fff;
+  text-align: center;
+  padding: 40px;
+}
 h1 { color: #38bdf8; }
-input, button { padding: 10px; margin: 8px; border-radius: 8px; border: none; font-size: 16px; }
+input, button {
+  padding: 10px;
+  margin: 8px;
+  border-radius: 8px;
+  border: none;
+  font-size: 16px;
+}
 input { width: 80px; text-align: center; }
-button { background-color: #3b82f6; color: #fff; cursor: pointer; }
+button {
+  background-color: #3b82f6;
+  color: #fff;
+  cursor: pointer;
+}
 button:hover { background-color: #2563eb; }
-#info, #hint, #result { margin-top: 15px; font-size: 18px; }
-#langBtn { position: absolute; top: 10px; right: 15px; background: #1e293b; color: white; border-radius: 8px; }
+#info, #hint, #result {
+  margin-top: 15px;
+  font-size: 18px;
+}
+#langBtn {
+  position: absolute;
+  top: 10px;
+  right: 15px;
+  background: #1e293b;
+  color: white;
+  border-radius: 8px;
+}
 </style>
 </head>
 <body>
-
 <button id="langBtn">🇩🇪 Deutsch</button>
-<h1 id="title">Zahlen-Rätsel 🧩</h1>
-<p id="rangeText">Lade Einstellungen…</p>
+<h1 id="title">🔢 Zahlen erraten</h1>
+<p id="rangeText">Lade Einstellungen...</p>
 <input type="number" id="guess" placeholder="Zahl">
 <button id="guessBtn">Raten</button>
 <p id="hint"></p>
@@ -43,129 +68,164 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// Elemente
-const rangeText = document.getElementById("rangeText");
 const guessInput = document.getElementById("guess");
 const guessBtn = document.getElementById("guessBtn");
-const hint = document.getElementById("hint");
 const info = document.getElementById("info");
+const hint = document.getElementById("hint");
 const result = document.getElementById("result");
+const rangeText = document.getElementById("rangeText");
 const title = document.getElementById("title");
 const langBtn = document.getElementById("langBtn");
 
+let lang = "de";
 let settings = {};
 let currentNumber = 0;
 let attemptsLeft = 0;
-let lang = "de";
 
-// Texte
+// Sprachtexte
 const texts = {
-  de: { title:"🔢 Zahlen erraten", placeholder:"Zahl", guessBtn:"Raten", loading:"Lade Einstellungen...",
-        range:(min,max)=>`Errate die Zahl zwischen ${min} und ${max}`, tooHigh:"📉 Zu hoch!", tooLow:"📈 Zu niedrig!",
-        wrong:"❌ Falsch! Versuch es nochmal!", correct:"🎉 Richtig!", noTries:(num)=>`❌ Keine Versuche mehr! Die Zahl war ${num}.`,
-        triesLeft:(num)=>`Noch ${num} Versuche`, invalid:"⚠️ Bitte gib eine gültige Zahl ein!", errorLoad:"❌ Einstellungen konnten nicht geladen werden!" },
-  en: { title:"🔢 Guess the Number", placeholder:"Number", guessBtn:"Guess", loading:"Loading settings...",
-        range:(min,max)=>`Guess the number between ${min} and ${max}`, tooHigh:"📉 Too high!", tooLow:"📈 Too low!",
-        wrong:"❌ Wrong! Try again!", correct:"🎉 Correct!", noTries:(num)=>`❌ No tries left! The correct number was ${num}.`,
-        triesLeft:(num)=>`${num} tries left`, invalid:"⚠️ Please enter a valid number!", errorLoad:"❌ Could not load settings!" }
+  de: {
+    title: "🔢 Zahlen erraten",
+    placeholder: "Zahl",
+    guessBtn: "Raten",
+    loading: "Lade Einstellungen...",
+    range: (min, max) => `Errate die Zahl zwischen ${min} und ${max}`,
+    tooHigh: "📉 Zu hoch!",
+    tooLow: "📈 Zu niedrig!",
+    wrong: "❌ Falsch!",
+    correct: "🎉 Richtig! Du wirst weitergeleitet...",
+    noTries: (num) => `❌ Keine Versuche mehr! Die richtige Zahl war ${num}.`,
+    triesLeft: (num) => `Noch ${num} Versuche.`,
+    invalid: "⚠️ Bitte gib eine gültige Zahl ein!"
+  },
+  en: {
+    title: "🔢 Guess the Number",
+    placeholder: "Number",
+    guessBtn: "Guess",
+    loading: "Loading settings...",
+    range: (min, max) => `Guess the number between ${min} and ${max}`,
+    tooHigh: "📉 Too high!",
+    tooLow: "📈 Too low!",
+    wrong: "❌ Wrong!",
+    correct: "🎉 Correct! Redirecting...",
+    noTries: (num) => `❌ No tries left! The correct number was ${num}.`,
+    triesLeft: (num) => `${num} tries left.`,
+    invalid: "⚠️ Please enter a valid number!"
+  }
 };
 
 // Sprachumschalter
 langBtn.onclick = () => {
-  lang = lang==="de"?"en":"de";
-  langBtn.textContent = lang==="de"?"🇩🇪 Deutsch":"🇬🇧 English";
+  lang = lang === "de" ? "en" : "de";
+  langBtn.textContent = lang === "de" ? "🇩🇪 Deutsch" : "🇬🇧 English";
   applyLanguage();
 };
 
-function applyLanguage(){
+function applyLanguage() {
   title.textContent = texts[lang].title;
   guessInput.placeholder = texts[lang].placeholder;
   guessBtn.textContent = texts[lang].guessBtn;
-  if(settings.minNumber) rangeText.textContent = texts[lang].range(settings.minNumber,settings.maxNumber);
-  else rangeText.textContent = texts[lang].loading;
-}
-
-// Einstellungen laden
-async function loadSettings(){
-  try {
-    const snapshot = await get(ref(db, "settings"));
-    console.log("Snapshot existiert?", snapshot.exists());
-    console.log("Snapshot value:", snapshot.val());
-    if(snapshot.exists()){
-      settings = snapshot.val();
-      applyLanguage();
-      startGame();
-    } else {
-      rangeText.textContent = texts[lang].errorLoad;
-    }
-  } catch(e){
-    console.error("Fehler beim Laden der Einstellungen:", e);
-    rangeText.textContent = texts[lang].errorLoad;
+  if (settings.minNumber) {
+    rangeText.textContent = texts[lang].range(settings.minNumber, settings.maxNumber);
+  } else {
+    rangeText.textContent = texts[lang].loading;
   }
 }
 
-// Spiel starten
-function startGame(){
+// Einstellungen laden
+async function loadSettings() {
+  const snapshot = await get(ref(db, "settings"));
+  if (snapshot.exists()) {
+    settings = snapshot.val();
+    applyLanguage();
+    resetGame();
+  } else {
+    rangeText.textContent = texts[lang].loading;
+  }
+}
+
+// Spiel zurücksetzen
+function resetGame() {
   const min = settings.minNumber || 1;
   const max = settings.maxNumber || 50;
   const isRandom = settings.randomNumber;
-  currentNumber = isRandom ? Math.floor(Math.random()*(max-min+1))+min : Number(settings.fixedNumber)||10;
+  currentNumber = isRandom
+    ? Math.floor(Math.random() * (max - min + 1)) + min
+    : Number(settings.fixedNumber) || 10;
   attemptsLeft = settings.maxAttempts || 5;
   info.textContent = texts[lang].triesLeft(attemptsLeft);
-  hint.textContent="";
-  result.textContent="";
-  guessInput.disabled=false;
-  guessBtn.disabled=false;
+  hint.textContent = "";
+  result.textContent = "";
+  guessInput.disabled = false;
+  guessBtn.disabled = false;
 }
 
 // Rateversuch
 guessBtn.onclick = () => {
   const guess = Number(guessInput.value);
-  if(!guess){ hint.textContent = texts[lang].invalid; return; }
+  if (!guess) {
+    hint.textContent = texts[lang].invalid;
+    return;
+  }
 
   attemptsLeft--;
+  const isRandom = settings.randomNumber;
+
+  if (guess === currentNumber) {
+    result.textContent = texts[lang].correct;
+    setTimeout(() => window.location.href = "anfrage.html", 1000);
+    guessInput.disabled = true;
+    guessBtn.disabled = true;
+    return;
+  }
+
+  if (attemptsLeft <= 0) {
+    result.textContent = texts[lang].noTries(currentNumber);
+    guessInput.disabled = true;
+    guessBtn.disabled = true;
+    return;
+  }
+
+  // Wenn feste Zahl, dann sagen ob zu hoch oder zu niedrig
+  if (!isRandom) {
+    if (guess > currentNumber) hint.textContent = texts[lang].tooHigh;
+    else hint.textContent = texts[lang].tooLow;
+  } else {
+    hint.textContent = texts[lang].wrong;
+  }
+
   info.textContent = texts[lang].triesLeft(attemptsLeft);
 
-  if(guess===currentNumber){
-    result.textContent = texts[lang].correct;
-    guessInput.disabled=true;
-    guessBtn.disabled=true;
-    return;
+  if (isRandom) {
+    const min = settings.minNumber || 1;
+    const max = settings.maxNumber || 50;
+    currentNumber = Math.floor(Math.random() * (max - min + 1)) + min;
   }
+};
 
-  if(attemptsLeft<=0){
-    result.textContent = texts[lang].noTries(currentNumber);
-    guessInput.disabled=true;
-    guessBtn.disabled=true;
-    return;
-  }
-
-  if(!settings.randomNumber){
-    result.textContent = guess>currentNumber ? texts[lang].tooHigh : texts[lang].tooLow;
-  } else {
-    result.textContent = texts[lang].wrong;
-    // Neue Zahl wenn Random
-    currentNumber = Math.floor(Math.random()*(settings.maxNumber-settings.minNumber+1)) + settings.minNumber;
-  }
-}
-
-// Reload Listener (Admin Button)
-const reloadRef = ref(db,"reloadFlag/time");
+// 🔄 Reload Listener (Admin-Button)
+const reloadRef = ref(db, "reloadFlag/time");
 let firstLoad = true;
-onValue(reloadRef,(snap)=>{
-  if(!snap.exists()) return;
+
+onValue(reloadRef, (snap) => {
+  if (!snap.exists()) return;
   const newTime = snap.val();
   const lastReload = localStorage.getItem("lastReloadTime");
-  if(firstLoad){ firstLoad=false; localStorage.setItem("lastReloadTime",newTime); return; }
-  if(newTime && newTime!==lastReload){
-    localStorage.setItem("lastReloadTime",newTime);
+
+  if (firstLoad) {
+    firstLoad = false;
+    localStorage.setItem("lastReloadTime", newTime);
+    return;
+  }
+
+  if (newTime && newTime !== lastReload) {
+    localStorage.setItem("lastReloadTime", newTime);
     location.reload();
   }
 });
 
 // Start
 loadSettings();
-
 </script>
 </body>
 </html>
